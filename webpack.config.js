@@ -4,10 +4,16 @@ module.exports = {
     entry: './src/index.ts',
     devtool: 'inline-source-map',
     module: {
-        rules: [{
+        rules: [ 
+            {
+                use: 'babel-loader',
+                exclude: /node_modules/
+            },
+            {
             use: 'ts-loader',
             exclude: /node_modules/
-        }]
+            }
+        ]
     },
     resolve: {
         extensions: ['.ts', '.js'],

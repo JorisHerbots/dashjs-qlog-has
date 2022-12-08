@@ -1,4 +1,4 @@
-import * as dashjs from "../dash";
+import * as dashjs from "dashjs";
 
 export class DashjsQlog {
     private mediaPlayer: dashjs.MediaPlayerClass;
@@ -9,8 +9,17 @@ export class DashjsQlog {
     }
 
     private dummy() {
-        // console.log(arguments);
-        // console.log("I Happened :D");
+       //console.log(arguments);
+       let dummy_string = "dummy hook"
+       for (let index = 0; index < arguments.length; index++) {
+           const argument = arguments[index];
+           dummy_string += `\t${argument.type}`
+           if (argument.message) {
+               dummy_string += `{${argument.message}}`
+           }
+       }
+       
+       console.log(dummy_string);
     }
 
     // NATIVE EVENTS
@@ -30,7 +39,7 @@ export class DashjsQlog {
             [mediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED]: this.onBufferUpdate,
             [mediaPlayerEvents.ERROR]: this.dummy,
             [mediaPlayerEvents.FRAGMENT_LOADING_COMPLETED]: this.dummy,
-            // [mediaPlayerEvents.FRAGMENT_LOADING_PROGRESS]: this.dummy,
+            [mediaPlayerEvents.FRAGMENT_LOADING_PROGRESS]: this.dummy,
             [mediaPlayerEvents.FRAGMENT_LOADING_STARTED]: this.dummy,
             [mediaPlayerEvents.FRAGMENT_LOADING_ABANDONED]: this.dummy,
             [mediaPlayerEvents.LOG]: this.dummy,
@@ -45,15 +54,15 @@ export class DashjsQlog {
             [mediaPlayerEvents.QUALITY_CHANGE_RENDERED]: this.dummy,
             [mediaPlayerEvents.TRACK_CHANGE_RENDERED]: this.dummy,
             // [mediaPlayerEvents.SOURCE_INITIALIZED]: this.dummy,
-            // [mediaPlayerEvents.STREAM_INITIALIZING]: this.dummy,
+            [mediaPlayerEvents.STREAM_INITIALIZING]: this.dummy,
             [mediaPlayerEvents.STREAM_INITIALIZED]: this.dummy,
-            // [mediaPlayerEvents.STREAM_TEARDOWN_COMPLETE]: this.dummy,
+            [mediaPlayerEvents.STREAM_TEARDOWN_COMPLETE]: this.dummy,
             [mediaPlayerEvents.TEXT_TRACKS_ADDED]: this.dummy,
             [mediaPlayerEvents.TEXT_TRACK_ADDED]: this.dummy,
             [mediaPlayerEvents.TTML_PARSED]: this.dummy,
-            // [mediaPlayerEvents.TTML_TO_PARSE]: this.dummy,
-            // [mediaPlayerEvents.CAPTION_RENDERED]: this.dummy,
-            // [mediaPlayerEvents.CAPTION_CONTAINER_RESIZE]: this.dummy,
+            [mediaPlayerEvents.TTML_TO_PARSE]: this.dummy,
+            [mediaPlayerEvents.CAPTION_RENDERED]: this.dummy,
+            [mediaPlayerEvents.CAPTION_CONTAINER_RESIZE]: this.dummy,
             [mediaPlayerEvents.CAN_PLAY]: this.dummy,
             [mediaPlayerEvents.PLAYBACK_ENDED]: this.dummy,
             [mediaPlayerEvents.PLAYBACK_ERROR]: this.dummy,
@@ -70,7 +79,7 @@ export class DashjsQlog {
             [mediaPlayerEvents.PLAYBACK_STARTED]: this.dummy,
             [mediaPlayerEvents.PLAYBACK_TIME_UPDATED]: this.dummy,
             [mediaPlayerEvents.PLAYBACK_WAITING]: this.dummy,
-            // [mediaPlayerEvents.MANIFEST_VALIDITY_CHANGED]: this.dummy,
+            [mediaPlayerEvents.MANIFEST_VALIDITY_CHANGED]: this.dummy,
             // [mediaPlayerEvents.GAP_CAUSED_PLAYBACK_SEEK]: this.dummy,
         };
 
