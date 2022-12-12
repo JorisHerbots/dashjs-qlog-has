@@ -31,7 +31,7 @@ export class VideoQlog {
     private startTimestamp!:number;
     private startTimer!:number;
 
-    async init(traceName:string) {
+    async init(traceName:string|undefined) {
         if(!window.indexedDB) {
             console.error("No support for IndexedDB, halting videoQlog.");
             return;

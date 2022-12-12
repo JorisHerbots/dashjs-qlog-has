@@ -23,7 +23,7 @@ module.exports = {
         library: 'DashjsQlog',
         libraryTarget: 'window',
         path: path.resolve(__dirname, 'dist'),
-        filename: 'dashqlog.js'
+        filename: 'dashjs-qlog.js'
     },
     mode: "development",
     // externals: {

@@ -1,148 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Event to Qlog</title>
-    <script src="dash.all.min.js"></script>
-    <script src="../dist/dashqlog.js"></script>
-    <script>
-        let autosave = false;
-
-        ////////////////////////
-
-        let player;
-        let eventPoller;
-        let videoQlog;
-
-        function setStatus(msg, color="000") {
-            // Colors
-            // red cc0000
-            // green 66B266
-            // orange FFC966
-            document.getElementById("test_status").innerText = msg;
-            document.getElementById("test_status").style.color = `#${color}`;
-        }
-
-        let loggingGlobals = {
-            lastRep:null,
-        };
-
-        async function init(url) {
-            var video;
-
-            video = document.querySelector("video");
-            player = dashjs.MediaPlayer().create();
-
-            let qlog = new DashjsQlog.DashjsQlog(player, dashjs.MediaPlayer.events);
-            // let qlog = new DashjsQlog(player, dashjs);
-
-            videoQlog = new DashjsQlog.VideoQlog();
-            await videoQlog.init();
-
-            let autoplay = false;
-            player.initialize(video, url, autoplay);
-            await videoQlog.onStreamInitialised(autoplay);
-            await videoQlog.onReadystateChange(video.readyState); // HAVE_NOTHING ??
-
-            // let a = new DashjsQlog.VideoQlog();
-            // await a.init();
-            // await a.test();
-
-            player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function () {
-                videoQlog.onPlaybackEnded(video.currentTime * 1000);
-                stopLogging();
-
-                if (autosave)
-                    downloadCurrentLog();
-            });
-
-            // https://html.spec.whatwg.org/multipage/media.html#mediaevents
-            // video.addEventListener('canplay', (e: Event) => console.log(e));
-            video.addEventListener('canplay', e => {console.log(e); console.warn(video.readyState); videoQlog.onReadystateChange(video.readyState);});
-            video.addEventListener('play', e => {console.warn("play"); console.log(e);});
-            video.addEventListener('waiting', e => {console.warn("waiting"); console.log(e);});
-            video.addEventListener('playing', e => {console.warn("playing"); console.log(e);});
-            video.addEventListener('pause', e => {console.warn("pause"); console.log(e);});
-            video.addEventListener('error', e => {console.warn("error"); console.log(e);});
-            video.addEventListener('seeking', e => {console.warn("seeking"); console.log(e);});
-            video.addEventListener('seeked', e => {console.warn("seeked"); console.log(e);});
-            video.addEventListener('timeupdate', e => { console.log(e); console.log(video.currentTime); videoQlog.onPlayheadProgress(video.currentTime * 1000); });
-            // video.addEventListener('progress', e => videoQlog.onProgressUpdate("video", e.timestamp));
-            video.addEventListener('ratechange', e => {console.warn("ratechange"); console.log(e);});
-            video.addEventListener('loadedmetadata', e => videoQlog.onReadystateChange(video.readyState));
-            video.addEventListener('loadeddata', e => videoQlog.onReadystateChange(video.readyState));
-            video.addEventListener('canplay', e => videoQlog.onReadystateChange(video.readyState));
-            video.addEventListener('canplaythrough', e => videoQlog.onReadystateChange(video.readyState));
-            video.addEventListener('stalled', e => {console.warn("stalled"); console.log(e);});
-            video.addEventListener('ended', e => {console.warn("eneded"); console.log(e);});
-            video.addEventListener('resize', e => {console.warn("resize"); console.log(e);});
-            video.addEventListener('volumechange', e => {console.warn("volumechange"); console.log(e);});
-
-            eventPoller = setInterval(async function () {
-                var streamInfo = player.getActiveStream().getStreamInfo();
-                var dashMetrics = player.getDashMetrics();
-                var dashAdapter = player.getDashAdapter();
-
-                if (dashMetrics && streamInfo) {
-                    const periodIdx = streamInfo.index;
-                    var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
-                    // console.log(repSwitch);
-                    var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
-                    // var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
-                    // var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo)
-                    // var frameRate = adaptation.Representation_asArray.find(function (rep) {
-                    //     return rep.id === repSwitch.to
-                    // }).frameRate;
-                    // document.getElementById('bufferLevel').innerText = bufferLevel + " secs";
-                    // document.getElementById('framerate').innerText = frameRate + " fps";
-                    // document.getElementById('reportedBitrate').innerText = bitrate + " Kbps";
-
-                    // console.log(bufferLevel);
-                    await videoQlog.onBufferLevelUpdate("video", bufferLevel);
-                    // await videoQlog.onRepresentationSwitch("video", repSwitch.to);
-
-                    let adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
-                    let adaptationInfo = adaptation.Representation_asArray.find(function (rep) {
-                            return rep.id === repSwitch.to
-                        });
-                    // console.log(adaptation);
-                    // console.log(adaptationInfo);
-                    /**
-                     bandwidth: 14931538
-                     codecs: "avc1.640033"
-                     frameRate: 30
-                     height: 2160
-                     id: "bbb_30fps_3840x2160_12000k"
-                     mimeType: "video/mp4"
-                     sar: "1:1"
-                     scanType: "progressive"
-                     width: 3840
-                     <prototype>: {…]
-                     */
-                    if (loggingGlobals.lastRep !== adaptationInfo.id) {
-                        loggingGlobals.lastRep = adaptationInfo.id;
-                        await videoQlog.onRepresentationSwitch("video", adaptationInfo.id, adaptationInfo.bandwidth);
-                    }
-                }
-            }, 100);
-
-        }
-
-        async function stopLogging() {
-            clearInterval(eventPoller);
-        }
-
-        async function downloadCurrentLog() {
-            await videoQlog.generateBlob();
-        }
-
-        function wipeDatabases() {
-            let dbManager = new DashjsQlog.VideoQlogOverviewManager();
-            dbManager.init().then(() => {
-                dbManager.clearAll().then(() => console.info("All databases wiped."));
-            });
-        }
-    </script>
+    <title>dash.js with qlog demo</title>
+    <script src="../dist/dashjs-qlog.js"></script>
 
     <style>
         video {
@@ -151,49 +13,38 @@
         }
     </style>
 </head>
+
 <body>
     <div>
-        <video controls="true"></video>
+        <video id="video_player" controls="true"></video>
     </div>
     <div>
-        <button onclick="wipeDatabases()">Full Wipe</button>
-        <button onclick="stopLogging()">Stop Logging</button>
-        <button onclick="downloadCurrentLog()">Download Current Logs</button>
+        <button onclick="player.wipeDatabases()">Full Wipe</button>
+        <button onclick="player.stopLogging()">Stop Logging</button>
+        <button onclick="player.downloadCurrentLog()">Download Current Logs</button>
         <button onClick="window.location.reload();">Refresh</button>
     </div>
+
+    <div id="debug">
+
+    </div>
+
     <div>
         <strong>Status:</strong> <span id="test_status">Uninitialised</span>
     </div>
     <div>
         <strong>Autosave:</strong> <span id="autosave">False</span>
     </div>
-    <script class="code">
-    document.addEventListener("DOMContentLoaded", async function () {
+
+    <script>
+        let video = document.getElementById('video_player');
         const urlSearchParams = new URLSearchParams(window.location.search);
         const videoManifestSource = urlSearchParams.get("video");
-        const autosaveRequest = urlSearchParams.get("autosave");
-        const testRun = urlSearchParams.get("testrun");
+        const autosave = false;
 
-        if (testRun === null) {
-            if (autosaveRequest !== null) {
-                autosave = true;
-                document.getElementById("autosave").innerText = "True";
-            }
-
-            setStatus("Initialising", "FFC966");
-
-            if (videoManifestSource === null) {
-                setStatus("Video source not set: ?video=src", "cc0000");
-            } else {
-                await init(videoManifestSource);
-            }
-        } else {
-            let testRun = new DashjsQlog.VideoQlog();
-            await testRun.init(false);
-            await testRun.generateBlob();
-            setStatus("Empty testrun complected.", "66B266");
-        }
-    });
-</script>
+        let player = new DashjsQlog.dashjs_qlog_player(video, videoManifestSource, autosave);
+        player.init();
+    </script>
 </body>
+
 </html>
