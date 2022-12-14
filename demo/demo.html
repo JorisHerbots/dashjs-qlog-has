@@ -25,24 +25,19 @@
         <button onClick="window.location.reload();">Refresh</button>
     </div>
 
-    <div id="debug">
-
-    </div>
-
-    <div>
-        <strong>Status:</strong> <span id="test_status">Uninitialised</span>
-    </div>
-    <div>
-        <strong>Autosave:</strong> <span id="autosave">False</span>
-    </div>
+    <div id="statusbox"> </div>
 
     <script>
         let video = document.getElementById('video_player');
+        let status = document.getElementById('statusbox');
         const urlSearchParams = new URLSearchParams(window.location.search);
         const videoManifestSource = urlSearchParams.get("video");
         const autosave = false;
 
-        let player = new DashjsQlog.dashjs_qlog_player(video, videoManifestSource, autosave);
+        let player = new DashjsQlog.dashjs_qlog_player(video, videoManifestSource, autosave, status);
+
+        player.setStatus('autosave', autosave.toString(), 'black');
+
         player.init();
     </script>
 </body>

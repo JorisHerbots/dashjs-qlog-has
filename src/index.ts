@@ -19,10 +19,12 @@ export class dashjs_qlog_player {
     private eventPoller: NodeJS.Timer | undefined;
     private videoQlog: VideoQlog.VideoQlog;
     private dashjsQlog: DashjsQlog.DashjsQlog;
+    private statusBox: HTMLElement;
+    private statusItems: {[key: string]: HTMLElement};
     private loggingHelpers: LoggingHelpers;
 
 
-    constructor(video_element: HTMLVideoElement, url: string, autosave: boolean) {
+    constructor(video_element: HTMLVideoElement, url: string, autosave: boolean, statusBox: HTMLElement) {
         // create important video streaming elements
         this.video = video_element;
         this.url = url;
@@ -31,13 +33,17 @@ export class dashjs_qlog_player {
         this.videoQlog = new VideoQlog.VideoQlog();
         this.eventPoller = undefined;
         this.dashjsQlog = new DashjsQlog.DashjsQlog(this.player, dashjs.MediaPlayer.events);
+        this.statusBox = statusBox;
+        this.statusItems = {};
         this.loggingHelpers = new LoggingHelpers();
 
         // modify for logging
-        this.init();
+        this.setup();
     }
 
-    public async init() {
+    public async setup() {
+        this.setStatus('status', 'uninitialised', 'black');
+
         this.player.updateSettings({
             'debug': {
                 /* Can be LOG_LEVEL_NONE, LOG_LEVEL_FATAL, LOG_LEVEL_ERROR, LOG_LEVEL_WARNING, LOG_LEVEL_INFO or LOG_LEVEL_DEBUG */
@@ -82,15 +88,12 @@ export class dashjs_qlog_player {
             };
         }, false);
 
-        console.log(dashjs.MediaPlayer.events);
-
-
-
         await this.videoQlog.init(undefined);
 
         let autoplay = false;
 
         console.log(this.url);
+        
         this.player.initialize();
         this.player.retrieveManifest(this.url, (manifest, error) => {
 
@@ -221,6 +224,12 @@ export class dashjs_qlog_player {
         });
     }
 
+    public async init() {
+        this.setStatus('status', 'initialising', 'orange');
+        //TODO
+        this.setStatus('status', 'initialised', 'green');
+    }
+
     public async stopLogging() {
         clearInterval(this.eventPoller);
     }
@@ -234,6 +243,24 @@ export class dashjs_qlog_player {
         dbManager.init().then(() => {
             dbManager.clearAll().then(() => console.info("All databases wiped."));
         });
+    }
+
+    public setStatus(key: string, value: string, color: string) {
+        if (this.statusItems[key] === undefined) {
+            let newStatus = document.createElement('div');
+            let keySpan = document.createElement('strong');
+            keySpan.innerText = key + ': ';
+            let valueSpan = document.createElement('span');
+
+            newStatus.appendChild(keySpan);
+            newStatus.appendChild(valueSpan);
+            this.statusBox.appendChild(newStatus);
+
+            this.statusItems[key] = valueSpan;
+        }
+
+        this.statusItems[key].innerText = value;
+        this.statusItems[key].style.color = color;
     }
 }
 
