@@ -12,6 +12,7 @@ class LoggingHelpers {
 }
 
 export class dashjs_qlog_player {
+    private active: boolean;
     private video: HTMLVideoElement;
     private url: string;
     private autosave: boolean;
@@ -20,14 +21,17 @@ export class dashjs_qlog_player {
     private videoQlog: VideoQlog.VideoQlog;
     private dashjsQlog: DashjsQlog.DashjsQlog;
     private statusBox: HTMLElement;
-    private statusItems: {[key: string]: HTMLElement};
+    private statusItems: { [key: string]: HTMLElement };
     private loggingHelpers: LoggingHelpers;
 
+    public autoplay: boolean;
 
     constructor(video_element: HTMLVideoElement, url: string, autosave: boolean, statusBox: HTMLElement) {
         // create important video streaming elements
+        this.active = false;
         this.video = video_element;
         this.url = url;
+        this.autoplay = false;
         this.autosave = autosave;
         this.player = dashjs.MediaPlayer().create();
         this.videoQlog = new VideoQlog.VideoQlog();
@@ -35,14 +39,12 @@ export class dashjs_qlog_player {
         this.dashjsQlog = new DashjsQlog.DashjsQlog(this.player, dashjs.MediaPlayer.events);
         this.statusBox = statusBox;
         this.statusItems = {};
+        this.setStatus('status', 'uninitialised', 'black');
         this.loggingHelpers = new LoggingHelpers();
-
-        // modify for logging
-        this.setup();
     }
 
     public async setup() {
-        this.setStatus('status', 'uninitialised', 'black');
+        this.setStatus('status', 'initialising', 'orange');
 
         this.player.updateSettings({
             'debug': {
@@ -52,9 +54,10 @@ export class dashjs_qlog_player {
         });
 
         /* Extend RequestModifier class and implement our own behaviour */
-        this.player.extend("RequestModifier", function () {
+        this.player.extend("RequestModifier", () => {
             return {
-                modifyRequestHeader: function (xhr: XMLHttpRequest, url: string) {
+                modifyRequestHeader: (xhr: XMLHttpRequest, url: string) => {
+                    if (!this.active) { return xhr; }
                     /* Add custom header. Requires to set up Access-Control-Allow-Headers in your */
                     /* response header in the server side. Reference: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/setRequestHeader */
                     /* xhr.setRequestHeader('DASH-CUSTOM-HEADER', 'MyValue'); */
@@ -62,12 +65,14 @@ export class dashjs_qlog_player {
                     xhr.addEventListener('loadend', (event) => { console.log('XHR4', xhr.response) });
                     return xhr;
                 },
-                modifyRequestURL: function (url: string) {
+                modifyRequestURL: (url: string) => {
+                    if (!this.active) { return url; }
                     /* Modify url adding a custom query string parameter */
                     console.log('XHR2', url);
                     return url + '?customQuery=value';
                 },
-                modifyRequest(request: any) { //TODO fix type
+                modifyRequest: (request: any) => { //TODO fix type
+                    if (!this.active) { return; }
                     /* Modify the entire request. Allows for async modifications */
                     console.log('XHR3', request);
                     var url = new URL(request.url);
@@ -90,10 +95,8 @@ export class dashjs_qlog_player {
 
         await this.videoQlog.init(undefined);
 
-        let autoplay = false;
-
         console.log(this.url);
-        
+
         this.player.initialize();
         this.player.retrieveManifest(this.url, (manifest, error) => {
 
@@ -111,8 +114,8 @@ export class dashjs_qlog_player {
             this.player.attachView(this.video);
             console.log("manifest", manifest);
             this.player.attachSource(manifest);
-            console.log("autoplay", autoplay);
-            this.player.setAutoPlay(autoplay);
+            console.log("autoplay", this.autoplay);
+            this.player.setAutoPlay(this.autoplay);
             // await videoQlog.onStreamInitialised(autoplay);
             // await videoQlog.onReadystateChange(video.readyState); // HAVE_NOTHING ??
 
@@ -176,9 +179,9 @@ export class dashjs_qlog_player {
                     await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel);
                     // await videoQlog.onRepresentationSwitch("video", repSwitch.to);
 
-                     //@ts-ignore
+                    //@ts-ignore
                     let adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
-                     //@ts-ignore
+                    //@ts-ignore
                     let adaptationInfo = adaptation.Representation_asArray.find(function (rep) {
                         //@ts-ignore
                         return rep.id === repSwitch.to;
@@ -222,15 +225,19 @@ export class dashjs_qlog_player {
             }
 
         });
-    }
 
-    public async init() {
-        this.setStatus('status', 'initialising', 'orange');
-        //TODO
         this.setStatus('status', 'initialised', 'green');
     }
 
+    public async startLogging() {
+        this.active = true;
+        this.dashjsQlog.active = true;
+        //TODO
+    }
+
     public async stopLogging() {
+        this.active = false;
+        this.dashjsQlog.active = false;
         clearInterval(this.eventPoller);
     }
 
