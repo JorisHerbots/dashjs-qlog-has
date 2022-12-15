@@ -47,9 +47,9 @@ export class DashjsQlog {
             mediaPlayerEvents.METRICS_CHANGED,
             mediaPlayerEvents.METRIC_CHANGED
         ];
-        console.log(ignoredEvents);
+        // console.log(ignoredEvents);
 
-        console.log(hooks);
+        // console.log(hooks);
 
         for (const eventKey in mediaPlayerEvents) {
             //@ts-expect-error

@@ -125,7 +125,6 @@ export class VideoQlog {
     // ***
 
     // Native events
-    // public async onCanPlay(element: HTMLElement)
 
     public async onPlaybackEnded(timestamp: number) {
         let eventData: qlog.IEventABRStreamEnd = {
@@ -180,16 +179,6 @@ export class VideoQlog {
         };
         await this.registerEvent(this.wrapEventData("video", qlog.BufferEventType.occupancy_update, eventData));
     }
-    //
-    // public async onPlayerInteraction() {}
-    //
-    // public async onRepresentationSwitch(mediaType: qlog.MediaType, representationName: string) {
-    //     let eventData: qlog.IRepresentationSwitch = {
-    //         media_type: mediaType,
-    //         representation_name: representationName
-    //     };
-    //     await this.registerEvent(this.wrapEventData("video", qlog.VideoEventData.representation_switch, eventData));
-    // }
 
     public inferMediaTypeFromURL(url: string): qlog.MediaType {
         const extension = url.split('.').slice(-1)[0];
