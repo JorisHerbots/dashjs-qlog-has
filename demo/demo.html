@@ -36,10 +36,13 @@
 
         let player = new DashjsQlog.dashjs_qlog_player(video, videoManifestSource, autosave, status);
 
-        player.setup();
-        player.setStatus('autosave', autosave.toString(), 'black');
+        async function start() {
+            await player.setup();
+            player.setStatus('autosave', autosave.toString(), 'black');
 
-        player.startLogging();
+            player.startLogging();
+        };
+        start();        
     </script>
 </body>
 
