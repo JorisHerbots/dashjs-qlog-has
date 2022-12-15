@@ -5,10 +5,12 @@ import * as qlog from "./qlog-schema"
 
 class LoggingHelpers {
     public lastRepresentation: string;
+    public lastBufferLevel: number;
     public lastDecodedByteCount: number;
 
     constructor() {
         this.lastRepresentation = "";
+        this.lastBufferLevel = -1;
         this.lastDecodedByteCount = 0;
     }
 }
@@ -28,6 +30,10 @@ export class dashjs_qlog_player {
     private loggingHelpers: LoggingHelpers;
 
     public autoplay: boolean;
+
+    static readonly eventPollerInterval = 100;//ms
+    static readonly bitratePollerInterval = 5000;//ms
+    static readonly bitratePollerIntervalSeconds = dashjs_qlog_player.bitratePollerInterval / 1000;//s
 
     constructor(video_element: HTMLVideoElement, url: string, autosave: boolean, statusBox: HTMLElement) {
         // create important video streaming elements
@@ -87,55 +93,53 @@ export class dashjs_qlog_player {
             }
         });
 
-        console.log(this.url);
-
         this.player.initialize();
         await this.videoQlog.init(undefined);
 
-        //TODO use promise to ensure this has ended before continuing
-        this.player.retrieveManifest(this.url, async (manifest, error) => {
+        await new Promise((resolve, reject) => {
+            this.player.retrieveManifest(this.url, async (manifest, error) => {
 
-            if (error) {
-                console.error(error);
-                return;
-            }
+                if (error) {
+                    reject(error);
+                }
+    
+                if (manifest === null) {
+                    reject("null manifest")
+                    return;
+                }
+    
+                this.player.attachView(this.video);
+                this.player.attachSource(manifest);
+                this.player.setAutoPlay(this.autoplay);
+    
+                await this.videoQlog.onStreamInitialised(this.url, this.autoplay, manifest);
+                await this.videoQlog.onReadystateChange(this.video.readyState);
+    
+                // https://html.spec.whatwg.org/multipage/media.html#mediaevents
+                this.video.addEventListener('canplay', (e: Event) => console.log(e));
+                this.video.addEventListener('canplay', e => { console.log(e); console.warn(this.video.readyState); this.videoQlog.onReadystateChange(this.video.readyState); });
+                this.video.addEventListener('play', e => { console.warn("play"); console.log(e); });
+                this.video.addEventListener('waiting', e => { console.warn("waiting"); console.log(e); });
+                this.video.addEventListener('playing', e => { console.warn("playing"); console.log(e); });
+                this.video.addEventListener('pause', e => { console.warn("pause"); console.log(e); });
+                this.video.addEventListener('error', e => { console.warn("error"); console.log(e); });
+                this.video.addEventListener('seeking', e => { console.warn("seeking"); console.log(e); });
+                this.video.addEventListener('seeked', e => { console.warn("seeked"); console.log(e); });
+                this.video.addEventListener('timeupdate', e => { console.log(e); console.log(this.video.currentTime); this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000); });
+                this.video.addEventListener('progress', e => console.log(e));
+                //this.video.addEventListener('progress', e => this.videoQlog.onProgressUpdate("video", e.timestamp));
+                this.video.addEventListener('ratechange', e => { console.warn("ratechange"); console.log(e); });
+                this.video.addEventListener('loadedmetadata', e => this.videoQlog.onReadystateChange(this.video.readyState));
+                this.video.addEventListener('loadeddata', e => this.videoQlog.onReadystateChange(this.video.readyState));
+                this.video.addEventListener('canplay', e => this.videoQlog.onReadystateChange(this.video.readyState));
+                this.video.addEventListener('canplaythrough', e => this.videoQlog.onReadystateChange(this.video.readyState));
+                this.video.addEventListener('stalled', e => { console.warn("stalled"); console.log(e); });
+                this.video.addEventListener('ended', e => { console.warn("eneded"); console.log(e); });
+                this.video.addEventListener('resize', e => { console.warn("resize"); console.log(e); });
+                this.video.addEventListener('volumechange', e => { console.warn("volumechange"); console.log(e); });
 
-            if (manifest == null) {
-                console.error("null manifest");
-                return;
-            }
-
-            console.log("video", this.video);
-            this.player.attachView(this.video);
-            console.log("manifest", manifest);
-            this.player.attachSource(manifest);
-            console.log("autoplay", this.autoplay);
-            this.player.setAutoPlay(this.autoplay);
-
-            await this.videoQlog.onStreamInitialised(this.url, this.autoplay, manifest);
-            await this.videoQlog.onReadystateChange(this.video.readyState);
-
-            // https://html.spec.whatwg.org/multipage/media.html#mediaevents
-            // video.addEventListener('canplay', (e: Event) => console.log(e));
-            this.video.addEventListener('canplay', e => { console.log(e); console.warn(this.video.readyState); this.videoQlog.onReadystateChange(this.video.readyState); });
-            this.video.addEventListener('play', e => { console.warn("play"); console.log(e); });
-            this.video.addEventListener('waiting', e => { console.warn("waiting"); console.log(e); });
-            this.video.addEventListener('playing', e => { console.warn("playing"); console.log(e); });
-            this.video.addEventListener('pause', e => { console.warn("pause"); console.log(e); });
-            this.video.addEventListener('error', e => { console.warn("error"); console.log(e); });
-            this.video.addEventListener('seeking', e => { console.warn("seeking"); console.log(e); });
-            this.video.addEventListener('seeked', e => { console.warn("seeked"); console.log(e); });
-            this.video.addEventListener('timeupdate', e => { console.log(e); console.log(this.video.currentTime); this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000); });
-            // video.addEventListener('progress', e => videoQlog.onProgressUpdate("video", e.timestamp));
-            this.video.addEventListener('ratechange', e => { console.warn("ratechange"); console.log(e); });
-            this.video.addEventListener('loadedmetadata', e => this.videoQlog.onReadystateChange(this.video.readyState));
-            this.video.addEventListener('loadeddata', e => this.videoQlog.onReadystateChange(this.video.readyState));
-            this.video.addEventListener('canplay', e => this.videoQlog.onReadystateChange(this.video.readyState));
-            this.video.addEventListener('canplaythrough', e => this.videoQlog.onReadystateChange(this.video.readyState));
-            this.video.addEventListener('stalled', e => { console.warn("stalled"); console.log(e); });
-            this.video.addEventListener('ended', e => { console.warn("eneded"); console.log(e); });
-            this.video.addEventListener('resize', e => { console.warn("resize"); console.log(e); });
-            this.video.addEventListener('volumechange', e => { console.warn("volumechange"); console.log(e); });
+                resolve(undefined);
+            });
         });
 
         this.setStatus('status', 'initialised', 'green');
@@ -144,60 +148,45 @@ export class dashjs_qlog_player {
     private async eventPollerFunction() {
         let activeStream = this.player.getActiveStream();
         if (!activeStream) { return; }
-        var streamInfo = activeStream.getStreamInfo();
-        var dashMetrics = this.player.getDashMetrics();
-        var dashAdapter = this.player.getDashAdapter();
+        let streamInfo = activeStream.getStreamInfo();
+        let dashMetrics = this.player.getDashMetrics();
+        let dashAdapter = this.player.getDashAdapter();
 
         if (dashMetrics && streamInfo) {
             const periodIdx = streamInfo.index;
-            var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video');
-            console.log('representationswitch', repSwitch);
-            var bufferLevel = dashMetrics.getCurrentBufferLevel('video');
-            // var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
-            // var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo)
-            // var frameRate = adaptation.Representation_asArray.find(function (rep) {
-            //     return rep.id === repSwitch.to
-            // }).frameRate;
-            // document.getElementById('bufferLevel').innerText = bufferLevel + " secs";
-            // document.getElementById('framerate').innerText = frameRate + " fps";
-            // document.getElementById('reportedBitrate').innerText = bitrate + " Kbps";
-
-            // console.log(bufferLevel);
-            await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel);
-            // await videoQlog.onRepresentationSwitch("video", repSwitch.to);
-
-            //@ts-ignore
+            let repSwitch = dashMetrics.getCurrentRepresentationSwitch('video');
+            //@ts-expect-error
             let adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
-            //@ts-ignore
-            let adaptationInfo = adaptation.Representation_asArray.find(function (rep) {
-                //@ts-ignore
+            let adaptationInfo = repSwitch ? adaptation.Representation_asArray.find(function (rep: any) {
+                //@ts-expect-error
                 return rep.id === repSwitch.to;
-            });
-            // console.log(adaptation);
-            // console.log(adaptationInfo);
-            /**
-             bandwidth: 14931538
-            codecs: "avc1.640033"
-            frameRate: 30
-            height: 2160
-            id: "bbb_30fps_3840x2160_12000k"
-            mimeType: "video/mp4"
-            sar: "1:1"
-            scanType: "progressive"
-            width: 3840
-            <prototype>: {…]
-            */
-            if (this.loggingHelpers.lastRepresentation !== adaptationInfo.id) {
-                this.loggingHelpers.lastRepresentation = adaptationInfo.id;
+            }) : undefined;
+
+            let bufferLevel = dashMetrics.getCurrentBufferLevel('video');
+            //@ts-expect-error
+            let bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
+            let frameRate = adaptationInfo ? adaptationInfo.frameRate : 0;
+
+            this.setStatus('buffer level', bufferLevel + " s", 'black');
+            this.setStatus('framerate', frameRate + " fps", 'black');
+            this.setStatus('bitrate', bitrate + " Kbps", 'black');
+
+            if (this.loggingHelpers.lastBufferLevel !== bufferLevel) {
+                await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel);
+                this.loggingHelpers.lastBufferLevel = bufferLevel;
+            }
+
+            if (adaptationInfo && this.loggingHelpers.lastRepresentation !== adaptationInfo.id) {
                 await this.videoQlog.onRepresentationSwitch(qlog.MediaType.video, adaptationInfo.id, adaptationInfo.bandwidth);
+                this.loggingHelpers.lastRepresentation = adaptationInfo.id;
             }
         }
     }
 
     private async eventPollerFunctionChrome() {
         //@ts-expect-error
-        var calculatedBitrate = (((this.video.webkitVideoDecodedByteCount - this.loggingHelpers.lastDecodedByteCount) / 1000) * 8) / 5; //TODO magic bitrate value
-        this.setStatus('bitrate', Math.round(calculatedBitrate) + " Kbps", 'black')
+        let calculatedBitrate = (((this.video.webkitVideoDecodedByteCount - this.loggingHelpers.lastDecodedByteCount) / 1000) * 8) / dashjs_qlog_player.bitratePollerIntervalSeconds;
+        this.setStatus('bitrate (webkit)', Math.round(calculatedBitrate) + " Kbps", 'black')
         //@ts-expect-error
         this.loggingHelpers.lastDecodedByteCount = this.video.webkitVideoDecodedByteCount;
     }
@@ -205,11 +194,11 @@ export class dashjs_qlog_player {
     public async startLogging() {
         this.active = true;
         this.dashjsQlog.active = true;
-        this.eventPoller = setInterval(() => { this.eventPollerFunction() }, 100); //TODO magic value
+        this.eventPoller = setInterval(() => { this.eventPollerFunction() }, dashjs_qlog_player.eventPollerInterval);
         //@ts-expect-error
         if (this.video.webkitVideoDecodedByteCount !== undefined) {
             this.eventPollerFunctionChrome(); // first log point is now
-            this.eventPollerChrome = setInterval(() => { this.eventPollerFunctionChrome() }, 5 * 1000); //TODO magic bitrate value
+            this.eventPollerChrome = setInterval(() => { this.eventPollerFunctionChrome() }, dashjs_qlog_player.bitratePollerInterval);
         }
     }
 
