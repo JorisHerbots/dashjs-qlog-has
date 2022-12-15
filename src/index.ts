@@ -5,9 +5,11 @@ import * as qlog from "./qlog-schema"
 
 class LoggingHelpers {
     public lastRepresentation: string;
+    public lastDecodedByteCount: number;
 
     constructor() {
         this.lastRepresentation = "";
+        this.lastDecodedByteCount = 0;
     }
 }
 
@@ -18,6 +20,7 @@ export class dashjs_qlog_player {
     private autosave: boolean;
     private player: dashjs.MediaPlayerClass;
     private eventPoller: NodeJS.Timer | undefined;
+    private eventPollerChrome: NodeJS.Timer | undefined;
     private videoQlog: VideoQlog.VideoQlog;
     private dashjsQlog: DashjsQlog.DashjsQlog;
     private statusBox: HTMLElement;
@@ -36,6 +39,7 @@ export class dashjs_qlog_player {
         this.player = dashjs.MediaPlayer().create();
         this.videoQlog = new VideoQlog.VideoQlog();
         this.eventPoller = undefined;
+        this.eventPollerChrome = undefined;
         this.dashjsQlog = new DashjsQlog.DashjsQlog(this.player, dashjs.MediaPlayer.events);
         this.statusBox = statusBox;
         this.statusItems = {};
@@ -56,49 +60,40 @@ export class dashjs_qlog_player {
         /* Extend RequestModifier class and implement our own behaviour */
         this.player.extend("RequestModifier", () => {
             return {
-                modifyRequestHeader: (xhr: XMLHttpRequest, url: string) => {
+                modifyRequestHeader: (xhr: XMLHttpRequest, urlObject: any) => {
                     if (!this.active) { return xhr; }
-                    /* Add custom header. Requires to set up Access-Control-Allow-Headers in your */
-                    /* response header in the server side. Reference: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/setRequestHeader */
-                    /* xhr.setRequestHeader('DASH-CUSTOM-HEADER', 'MyValue'); */
-                    console.log('XHR1', xhr, url, xhr.response);
-                    xhr.addEventListener('loadend', (event) => { console.log('XHR4', xhr.response) });
+                    const url = urlObject.url;
+                    this.videoQlog.onRequest(url, this.videoQlog.inferMediaTypeFromURL(url));
+                    xhr.addEventListener('loadend', () => {
+                        this.videoQlog.onRequestUpdate(url, xhr.response.byteLength);
+                    });
                     return xhr;
                 },
                 modifyRequestURL: (url: string) => {
-                    if (!this.active) { return url; }
-                    /* Modify url adding a custom query string parameter */
-                    console.log('XHR2', url);
-                    return url + '?customQuery=value';
+                    return url; // unmodified
                 },
-                modifyRequest: (request: any) => { //TODO fix type
-                    if (!this.active) { return; }
-                    /* Modify the entire request. Allows for async modifications */
-                    console.log('XHR3', request);
-                    var url = new URL(request.url);
-
-                    if (!/\.mpd$/.test(url.pathname)) {
-                        return;
-                    }
-
-                    return fetch('https://time.akamai.com')
-                        .then(function (response) {
-                            return response.text();
-                        })
-                        .then(function (text) {
-                            url.searchParams.set('now', text);
-                            request.url = url.toString();
-                        });
+                modifyRequest: (request: any) => {
+                    return; // unmodified
                 },
             };
         }, false);
 
-        await this.videoQlog.init(undefined);
+        this.player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], () => {
+            this.videoQlog.onPlaybackEnded(this.video.currentTime * 1000);
+            this.stopLogging();
+
+            if (this.autosave) {
+                this.downloadCurrentLog();
+            }
+        });
 
         console.log(this.url);
 
         this.player.initialize();
-        this.player.retrieveManifest(this.url, (manifest, error) => {
+        await this.videoQlog.init(undefined);
+
+        //TODO use promise to ensure this has ended before continuing
+        this.player.retrieveManifest(this.url, async (manifest, error) => {
 
             if (error) {
                 console.error(error);
@@ -116,21 +111,9 @@ export class dashjs_qlog_player {
             this.player.attachSource(manifest);
             console.log("autoplay", this.autoplay);
             this.player.setAutoPlay(this.autoplay);
-            // await videoQlog.onStreamInitialised(autoplay);
-            // await videoQlog.onReadystateChange(video.readyState); // HAVE_NOTHING ??
 
-            // let a = new DashjsQlog.VideoQlog();
-            // await a.init();
-            // await a.test();
-
-            this.player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], () => {
-                this.videoQlog.onPlaybackEnded(this.video.currentTime * 1000);
-                this.stopLogging();
-
-                if (this.autosave) {
-                    this.downloadCurrentLog();
-                }
-            });
+            await this.videoQlog.onStreamInitialised(this.url, this.autoplay, manifest);
+            await this.videoQlog.onReadystateChange(this.video.readyState);
 
             // https://html.spec.whatwg.org/multipage/media.html#mediaevents
             // video.addEventListener('canplay', (e: Event) => console.log(e));
@@ -153,92 +136,88 @@ export class dashjs_qlog_player {
             this.video.addEventListener('ended', e => { console.warn("eneded"); console.log(e); });
             this.video.addEventListener('resize', e => { console.warn("resize"); console.log(e); });
             this.video.addEventListener('volumechange', e => { console.warn("volumechange"); console.log(e); });
-
-            this.eventPoller = setInterval(async () => {
-                let activeStream = this.player.getActiveStream();
-                if (!activeStream) { return; }
-                var streamInfo = activeStream.getStreamInfo();
-                var dashMetrics = this.player.getDashMetrics();
-                var dashAdapter = this.player.getDashAdapter();
-
-                if (dashMetrics && streamInfo) {
-                    const periodIdx = streamInfo.index;
-                    var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video');
-                    console.log('representationswitch', repSwitch);
-                    var bufferLevel = dashMetrics.getCurrentBufferLevel('video');
-                    // var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
-                    // var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo)
-                    // var frameRate = adaptation.Representation_asArray.find(function (rep) {
-                    //     return rep.id === repSwitch.to
-                    // }).frameRate;
-                    // document.getElementById('bufferLevel').innerText = bufferLevel + " secs";
-                    // document.getElementById('framerate').innerText = frameRate + " fps";
-                    // document.getElementById('reportedBitrate').innerText = bitrate + " Kbps";
-
-                    // console.log(bufferLevel);
-                    await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel);
-                    // await videoQlog.onRepresentationSwitch("video", repSwitch.to);
-
-                    //@ts-ignore
-                    let adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
-                    //@ts-ignore
-                    let adaptationInfo = adaptation.Representation_asArray.find(function (rep) {
-                        //@ts-ignore
-                        return rep.id === repSwitch.to;
-                    });
-                    // console.log(adaptation);
-                    // console.log(adaptationInfo);
-                    /**
-                     bandwidth: 14931538
-                    codecs: "avc1.640033"
-                    frameRate: 30
-                    height: 2160
-                    id: "bbb_30fps_3840x2160_12000k"
-                    mimeType: "video/mp4"
-                    sar: "1:1"
-                    scanType: "progressive"
-                    width: 3840
-                    <prototype>: {…]
-                    */
-                    if (this.loggingHelpers.lastRepresentation !== adaptationInfo.id) {
-                        this.loggingHelpers.lastRepresentation = adaptationInfo.id;
-                        await this.videoQlog.onRepresentationSwitch(qlog.MediaType.video, adaptationInfo.id, adaptationInfo.bandwidth);
-                    }
-                }
-            }, 100);
-
-            //CHROME ONLY
-            //@ts-ignore
-            if (this.video.webkitVideoDecodedByteCount !== undefined) {
-                var lastDecodedByteCount = 0;
-                const bitrateInterval = 5;
-                var bitrateCalculator = setInterval(() => {
-                    //@ts-ignore
-                    var calculatedBitrate = (((this.video.webkitVideoDecodedByteCount - lastDecodedByteCount) / 1000) * 8) / bitrateInterval;
-                    //document.getElementById('calculatedBitrate').innerText = Math.round(calculatedBitrate) + " Kbps";
-                    console.log(Math.round(calculatedBitrate) + " Kbps");
-                    //@ts-ignore
-                    lastDecodedByteCount = this.video.webkitVideoDecodedByteCount;
-                }, bitrateInterval * 1000);
-            } else {
-                //document.getElementById('chrome-only').style.display = "none";
-            }
-
         });
 
         this.setStatus('status', 'initialised', 'green');
     }
 
+    private async eventPollerFunction() {
+        let activeStream = this.player.getActiveStream();
+        if (!activeStream) { return; }
+        var streamInfo = activeStream.getStreamInfo();
+        var dashMetrics = this.player.getDashMetrics();
+        var dashAdapter = this.player.getDashAdapter();
+
+        if (dashMetrics && streamInfo) {
+            const periodIdx = streamInfo.index;
+            var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video');
+            console.log('representationswitch', repSwitch);
+            var bufferLevel = dashMetrics.getCurrentBufferLevel('video');
+            // var bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
+            // var adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo)
+            // var frameRate = adaptation.Representation_asArray.find(function (rep) {
+            //     return rep.id === repSwitch.to
+            // }).frameRate;
+            // document.getElementById('bufferLevel').innerText = bufferLevel + " secs";
+            // document.getElementById('framerate').innerText = frameRate + " fps";
+            // document.getElementById('reportedBitrate').innerText = bitrate + " Kbps";
+
+            // console.log(bufferLevel);
+            await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel);
+            // await videoQlog.onRepresentationSwitch("video", repSwitch.to);
+
+            //@ts-ignore
+            let adaptation = dashAdapter.getAdaptationForType(periodIdx, 'video', streamInfo);
+            //@ts-ignore
+            let adaptationInfo = adaptation.Representation_asArray.find(function (rep) {
+                //@ts-ignore
+                return rep.id === repSwitch.to;
+            });
+            // console.log(adaptation);
+            // console.log(adaptationInfo);
+            /**
+             bandwidth: 14931538
+            codecs: "avc1.640033"
+            frameRate: 30
+            height: 2160
+            id: "bbb_30fps_3840x2160_12000k"
+            mimeType: "video/mp4"
+            sar: "1:1"
+            scanType: "progressive"
+            width: 3840
+            <prototype>: {…]
+            */
+            if (this.loggingHelpers.lastRepresentation !== adaptationInfo.id) {
+                this.loggingHelpers.lastRepresentation = adaptationInfo.id;
+                await this.videoQlog.onRepresentationSwitch(qlog.MediaType.video, adaptationInfo.id, adaptationInfo.bandwidth);
+            }
+        }
+    }
+
+    private async eventPollerFunctionChrome() {
+        //@ts-expect-error
+        var calculatedBitrate = (((this.video.webkitVideoDecodedByteCount - this.loggingHelpers.lastDecodedByteCount) / 1000) * 8) / 5; //TODO magic bitrate value
+        this.setStatus('bitrate', Math.round(calculatedBitrate) + " Kbps", 'black')
+        //@ts-expect-error
+        this.loggingHelpers.lastDecodedByteCount = this.video.webkitVideoDecodedByteCount;
+    }
+
     public async startLogging() {
         this.active = true;
         this.dashjsQlog.active = true;
-        //TODO
+        this.eventPoller = setInterval(() => { this.eventPollerFunction() }, 100); //TODO magic value
+        //@ts-expect-error
+        if (this.video.webkitVideoDecodedByteCount !== undefined) {
+            this.eventPollerFunctionChrome(); // first log point is now
+            this.eventPollerChrome = setInterval(() => { this.eventPollerFunctionChrome() }, 5 * 1000); //TODO magic bitrate value
+        }
     }
 
     public async stopLogging() {
         this.active = false;
         this.dashjsQlog.active = false;
         clearInterval(this.eventPoller);
+        clearInterval(this.eventPollerChrome);
     }
 
     public async downloadCurrentLog() {

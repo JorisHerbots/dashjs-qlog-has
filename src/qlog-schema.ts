@@ -1262,7 +1262,9 @@ export enum ReadyState {
 }
 
 export interface IEventABRStreamInitialised {
-    autoplay: boolean
+    url: string,
+    autoplay: boolean,
+    manifest?: Object,
 }
 
 export interface IEventABRPlayerInteraction {

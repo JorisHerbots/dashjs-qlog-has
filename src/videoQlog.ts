@@ -2,14 +2,14 @@ import * as idb from "idb"
 import * as qlog from "./qlog-schema"
 
 interface VideoQlogOverviewDB extends idb.DBSchema {
-    overview : {
+    overview: {
         value: string
         key: string
     }
 }
 
 interface VideoQlogDB extends idb.DBSchema {
-    events : {
+    events: {
         key: string,
         value: IVideoEvent
         // value: string
@@ -25,14 +25,14 @@ interface IVideoEvent {
 
 // Represents a single video trace
 export class VideoQlog {
-    private traceName!:string;
-    private logDatabase!:idb.IDBPDatabase<VideoQlogDB>;
-    private overviewDatabase!:VideoQlogOverviewManager;
-    private startTimestamp!:number;
-    private startTimer!:number;
+    private traceName!: string;
+    private logDatabase!: idb.IDBPDatabase<VideoQlogDB>;
+    private overviewDatabase!: VideoQlogOverviewManager;
+    private startTimestamp!: number;
+    private startTimer!: number;
 
-    async init(traceName:string|undefined) {
-        if(!window.indexedDB) {
+    async init(traceName: string | undefined) {
+        if (!window.indexedDB) {
             console.error("No support for IndexedDB, halting videoQlog.");
             return;
         }
@@ -41,11 +41,11 @@ export class VideoQlog {
         this.startTimer = window.performance.now();
         this.traceName = traceName || this.startTimestamp.toString();
 
-        let databaseName:string = "videoQlog-"+ this.traceName;
+        let databaseName: string = "videoQlog-" + this.traceName;
         this.logDatabase = await idb.openDB<VideoQlogDB>(databaseName, 1, {
             upgrade(db) {
-                if(!db.objectStoreNames.contains("events")) {
-                    db.createObjectStore("events", {autoIncrement: true})
+                if (!db.objectStoreNames.contains("events")) {
+                    db.createObjectStore("events", { autoIncrement: true })
                 }
             }
         });
@@ -55,15 +55,15 @@ export class VideoQlog {
         await this.overviewDatabase.registerNewDatabase(databaseName);
     }
 
-    private getCurrentTimeOffset():number {
+    private getCurrentTimeOffset(): number {
         return window.performance.now() - this.startTimer;
     }
 
     public async generateBlob() {
         await this.retrieveLogs().then(logs => {
-            let time:Date = new Date(new Date().getTime());
+            let time: Date = new Date(new Date().getTime());
             // https://quiclog.github.io/internet-drafts/draft02/draft-marx-qlog-main-schema.html
-            let qlogJson:any = {
+            let qlogJson: any = {
                 qlog_version: "draft-02",
                 qlog_format: "JSON",
                 title: "qlog-abr",
@@ -90,12 +90,12 @@ export class VideoQlog {
         });
     }
 
-    private async retrieveLogs():Promise<any[]> {
-        let logs:any[] = await this.logDatabase.getAll("events");
+    private async retrieveLogs(): Promise<any[]> {
+        let logs: any[] = await this.logDatabase.getAll("events");
         return logs;
     }
 
-    private wrapEventData(category:string, type:qlog.ABREventTypes, data:qlog.ABREventData):IVideoEvent {
+    private wrapEventData(category: string, type: qlog.ABREventTypes, data: qlog.ABREventData): IVideoEvent {
         return {
             time: this.getCurrentTimeOffset(),
             category: category,
@@ -104,9 +104,9 @@ export class VideoQlog {
         };
     }
 
-    private generateDownloadEvent(data:string) {
-        let blob:Blob = new Blob([data], {type: "application/json;charset=utf8"});
-        let link:string = window.URL.createObjectURL(blob);
+    private generateDownloadEvent(data: string) {
+        let blob: Blob = new Blob([data], { type: "application/json;charset=utf8" });
+        let link: string = window.URL.createObjectURL(blob);
         let domA = document.createElement("a");
         domA.download = "dashjs.qlog";
         domA.href = link;
@@ -141,22 +141,24 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.playhead_progress, eventData));
     }
 
-    public async onStreamInitialised(autoplay: boolean) {
+    public async onStreamInitialised(url: string, autoplay: boolean, manifest: Object | undefined) {
         let eventData: qlog.IEventABRStreamInitialised = {
-            autoplay: autoplay
+            url: url,
+            autoplay: autoplay,
+            manifest: manifest,
         };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.stream_initialised, eventData));
     }
 
     public async onStreamEnded(timestamp: number) {
-        let eventData: qlog.IEventABRStreamEnd= {
+        let eventData: qlog.IEventABRStreamEnd = {
             playhead_ms: timestamp
         };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.stream_end, eventData));
     }
 
     public async onRepresentationSwitch(mediaType: qlog.MediaType, newRepName: string, bitrate: number) {
-        let eventData: qlog.IEventABRSwitch= {
+        let eventData: qlog.IEventABRSwitch = {
             media_type: mediaType,
             to_id: newRepName,
             to_bitrate: bitrate
@@ -165,7 +167,7 @@ export class VideoQlog {
     }
 
     public async onReadystateChange(state: qlog.ReadyState) {
-        let eventData: qlog.IEventABRReadystateChange= {
+        let eventData: qlog.IEventABRReadystateChange = {
             state: state
         };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.readystate_change, eventData));
@@ -188,23 +190,75 @@ export class VideoQlog {
     //     };
     //     await this.registerEvent(this.wrapEventData("video", qlog.VideoEventData.representation_switch, eventData));
     // }
+
+    public inferMediaTypeFromURL(url: string): qlog.MediaType {
+        const extension = url.split('.').slice(-1)[0];
+        
+        //TODO NOTE might not include all known extensions
+        const video_extensions: string[] = [
+            'avi',
+            'mkv',
+            'mp4', 'm4p', 'm4v',
+            'webm',
+        ];
+        if (video_extensions.includes(extension)) {
+            return qlog.MediaType.video;
+        }
+
+        //TODO NOTE might not include all known extensions
+        const audio_extensions: string[] = [
+            'aac',
+            'm4a',
+            'mp3',
+            'wav'
+        ];
+        if (audio_extensions.includes(extension)) {
+            return qlog.MediaType.audio;
+        }
+
+        //TODO NOTE might not include all known extensions
+        const subtitles_extensions: string[] = [
+            'srt'
+        ];
+        if (subtitles_extensions.includes(extension)) {
+            return qlog.MediaType.subtitles;
+        }
+
+        return qlog.MediaType.other;
+    }
+
+    public async onRequest(url: string, media_type: qlog.MediaType) {
+        let eventData: qlog.IEventABRRequest = {
+            resource_url: url,
+            media_type: media_type,
+        };
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.request, eventData));
+    }
+
+    public async onRequestUpdate(url: string, bytes_received: number) {
+        let eventData: qlog.IEventABRRequestUpdate = {
+            resource_url: url,
+            bytes_received: bytes_received,
+        };
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.request_update, eventData));
+    }
 }
 
 export class VideoQlogOverviewManager {
-    private overviewDatabase!:idb.IDBPDatabase<VideoQlogOverviewDB>;
+    private overviewDatabase!: idb.IDBPDatabase<VideoQlogOverviewDB>;
 
     public async init() {
         this.overviewDatabase = await idb.openDB<VideoQlogOverviewDB>("VideoQlog-overview", 1, {
             upgrade(db) {
-                if(!db.objectStoreNames.contains("overview")) {
-                    db.createObjectStore("overview", {autoIncrement: true})
+                if (!db.objectStoreNames.contains("overview")) {
+                    db.createObjectStore("overview", { autoIncrement: true })
                 }
             }
         });
     }
 
     public async clearAll() {
-        let databaseNames:string[] = await this.overviewDatabase.getAll("overview");
+        let databaseNames: string[] = await this.overviewDatabase.getAll("overview");
         // console.log(databaseNames);
         databaseNames.forEach(database => {
             idb.deleteDB(database);
@@ -212,7 +266,7 @@ export class VideoQlogOverviewManager {
         await this.overviewDatabase.clear("overview");
     }
 
-    public async registerNewDatabase(databaseName:string) {
+    public async registerNewDatabase(databaseName: string) {
         return this.overviewDatabase.put("overview", databaseName);
     }
 }
