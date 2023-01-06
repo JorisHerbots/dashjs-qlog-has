@@ -188,6 +188,13 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData("video", qlog.BufferEventType.occupancy_update, eventData));
     }
 
+    public async onRebuffer(level: number) {
+        let eventData: qlog.IEventABRRebuffer = {
+            playhead_ms: level
+        };
+        await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.rebuffer, eventData));
+    }
+
     public async onPlayerInteraction(action: qlog.InteractionState, playhead_ms: number, playback_rate: number, volume: number) {
         let eventData: qlog.IEventABRPlayerInteraction = {
             state: action,

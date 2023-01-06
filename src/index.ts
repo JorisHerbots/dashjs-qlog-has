@@ -131,7 +131,7 @@ export class dashjs_qlog_player {
                 this.video.addEventListener('loadeddata', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('canplay', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('canplaythrough', e => this.videoQlog.onReadystateChange(this.video.readyState));
-                this.video.addEventListener('stalled', e => { console.warn("stalled"); console.log(e); });
+                this.video.addEventListener('stalled', e => this.videoQlog.onRebuffer(this.video.currentTime * 1000));
                 this.video.addEventListener('ended', e => { console.warn("ended"); console.log(e); });
                 this.video.addEventListener('resize', e => { console.warn("resize"); console.log(e); });
                 this.video.addEventListener('volumechange', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.volume, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
