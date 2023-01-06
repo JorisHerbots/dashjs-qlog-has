@@ -59,8 +59,8 @@ export class VideoQlog {
         return window.performance.now() - this.startTimer;
     }
 
-    public async generateBlob() {
-        await this.retrieveLogs().then(logs => {
+    public async generateBlob(): Promise<string> {
+        let rv = await this.retrieveLogs().then(logs => {
             let time: Date = new Date(new Date().getTime());
             // https://quiclog.github.io/internet-drafts/draft02/draft-marx-qlog-main-schema.html
             let qlogJson: any = {
@@ -86,8 +86,9 @@ export class VideoQlog {
                 ]
             };
 
-            this.generateDownloadEvent(JSON.stringify(qlogJson));
+            return JSON.stringify(qlogJson);
         });
+        return rv;
     }
 
     private async retrieveLogs(): Promise<any[]> {
@@ -102,17 +103,6 @@ export class VideoQlog {
             type: type,
             data: data
         };
-    }
-
-    private generateDownloadEvent(data: string) {
-        let blob: Blob = new Blob([data], { type: "application/json;charset=utf8" });
-        let link: string = window.URL.createObjectURL(blob);
-        let domA = document.createElement("a");
-        domA.download = "dashjs.qlog";
-        domA.href = link;
-        document.body.appendChild(domA);
-        domA.click();
-        document.body.removeChild(domA);
     }
 
     private async registerEvent(eventData: IVideoEvent) {

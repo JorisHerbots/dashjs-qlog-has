@@ -112,9 +112,11 @@ export class dashjs_qlog_player {
                 this.player.attachSource(manifest);
                 this.player.setAutoPlay(this.autoplay);
     
-                await this.videoQlog.onStreamInitialised(this.url, this.autoplay, manifest);
+                await this.videoQlog.onStreamInitialised(this.url, this.autoplay, "manifest.json");
                 await this.videoQlog.onReadystateChange(this.video.readyState);
     
+                this.generateAutomaticDownloadEvent("manifest.json", JSON.stringify(manifest));
+
                 // https://html.spec.whatwg.org/multipage/media.html#mediaevents
                 this.video.addEventListener('canplay', e => { this.videoQlog.onReadystateChange(this.video.readyState); });
                 this.video.addEventListener('play', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.play, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
@@ -208,7 +210,8 @@ export class dashjs_qlog_player {
     }
 
     public async downloadCurrentLog() {
-        await this.videoQlog.generateBlob();
+        let data = await this.videoQlog.generateBlob();
+        this.generateAutomaticDownloadEvent("dashjs.qlog", data);
     }
 
     public wipeDatabases() {
@@ -234,6 +237,17 @@ export class dashjs_qlog_player {
 
         this.statusItems[key].innerText = value;
         this.statusItems[key].style.color = color;
+    }
+
+    private generateAutomaticDownloadEvent(filename: string, data: string) {
+        let blob: Blob = new Blob([data], { type: "application/json;charset=utf8" });
+        let link: string = window.URL.createObjectURL(blob);
+        let domA = document.createElement("a");
+        domA.download = filename;
+        domA.href = link;
+        document.body.appendChild(domA);
+        domA.click();
+        document.body.removeChild(domA);
     }
 }
 
