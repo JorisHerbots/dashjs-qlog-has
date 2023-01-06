@@ -116,27 +116,25 @@ export class dashjs_qlog_player {
                 await this.videoQlog.onReadystateChange(this.video.readyState);
     
                 // https://html.spec.whatwg.org/multipage/media.html#mediaevents
-                this.video.addEventListener('canplay', (e: Event) => console.log(e));
-                this.video.addEventListener('canplay', e => { console.log(e); console.warn(this.video.readyState); this.videoQlog.onReadystateChange(this.video.readyState); });
-                this.video.addEventListener('play', e => { console.warn("play"); console.log(e); });
+                this.video.addEventListener('canplay', e => { this.videoQlog.onReadystateChange(this.video.readyState); });
+                this.video.addEventListener('play', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.play, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
                 this.video.addEventListener('waiting', e => { console.warn("waiting"); console.log(e); });
                 this.video.addEventListener('playing', e => { console.warn("playing"); console.log(e); });
-                this.video.addEventListener('pause', e => { console.warn("pause"); console.log(e); });
-                this.video.addEventListener('error', e => { console.warn("error"); console.log(e); });
-                this.video.addEventListener('seeking', e => { console.warn("seeking"); console.log(e); });
+                this.video.addEventListener('pause', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.pause, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
+                this.video.addEventListener('error', e => { this.videoQlog.onError(-1, e.message); });
+                this.video.addEventListener('seeking', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.seek, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
                 this.video.addEventListener('seeked', e => { console.warn("seeked"); console.log(e); });
-                this.video.addEventListener('timeupdate', e => { console.log(e); console.log(this.video.currentTime); this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000); });
-                this.video.addEventListener('progress', e => console.log(e));
-                //this.video.addEventListener('progress', e => this.videoQlog.onProgressUpdate("video", e.timestamp));
-                this.video.addEventListener('ratechange', e => { console.warn("ratechange"); console.log(e); });
+                this.video.addEventListener('timeupdate', e => { this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000); });
+                this.video.addEventListener('progress', e => this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000));
+                this.video.addEventListener('ratechange', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.speed, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
                 this.video.addEventListener('loadedmetadata', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('loadeddata', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('canplay', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('canplaythrough', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('stalled', e => { console.warn("stalled"); console.log(e); });
-                this.video.addEventListener('ended', e => { console.warn("eneded"); console.log(e); });
+                this.video.addEventListener('ended', e => { console.warn("ended"); console.log(e); });
                 this.video.addEventListener('resize', e => { console.warn("resize"); console.log(e); });
-                this.video.addEventListener('volumechange', e => { console.warn("volumechange"); console.log(e); });
+                this.video.addEventListener('volumechange', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.volume, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
 
                 resolve(undefined);
             });
@@ -172,7 +170,7 @@ export class dashjs_qlog_player {
             this.setStatus('bitrate', bitrate + " Kbps", 'black');
 
             if (this.loggingHelpers.lastBufferLevel !== bufferLevel) {
-                await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel);
+                await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel * 1000);
                 this.loggingHelpers.lastBufferLevel = bufferLevel;
             }
 

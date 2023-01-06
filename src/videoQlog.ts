@@ -19,8 +19,8 @@ interface VideoQlogDB extends idb.DBSchema {
 interface IVideoEvent {
     time: number,
     category: string,
-    type: qlog.ABREventTypes,
-    data: qlog.ABREventData
+    type: qlog.EventType,
+    data: qlog.EventData
 }
 
 // Represents a single video trace
@@ -95,7 +95,7 @@ export class VideoQlog {
         return logs;
     }
 
-    private wrapEventData(category: string, type: qlog.ABREventTypes, data: qlog.ABREventData): IVideoEvent {
+    private wrapEventData(category: string, type: qlog.EventType, data: qlog.EventData): IVideoEvent {
         return {
             time: this.getCurrentTimeOffset(),
             category: category,
@@ -125,6 +125,14 @@ export class VideoQlog {
     // ***
 
     // Native events
+
+    public async onError(code: number, error: string) {
+        let eventData: qlog.IEventApplicationError = {
+            code: code,
+            description: error,
+        };
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.error, qlog.GenericEventType.application_error, eventData));
+    }
 
     public async onPlaybackEnded(timestamp: number) {
         let eventData: qlog.IEventABRStreamEnd = {
@@ -180,9 +188,19 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData("video", qlog.BufferEventType.occupancy_update, eventData));
     }
 
+    public async onPlayerInteraction(action: qlog.InteractionState, playhead_ms: number, playback_rate: number, volume: number) {
+        let eventData: qlog.IEventABRPlayerInteraction = {
+            state: action,
+            playhead_ms: playhead_ms,
+            speed: playback_rate,
+            volume: volume,
+        };
+        await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.player_interaction, eventData));
+    }
+
     public inferMediaTypeFromURL(url: string): qlog.MediaType {
         const extension = url.split('.').slice(-1)[0];
-        
+
         //TODO NOTE might not include all known extensions
         const video_extensions: string[] = [
             'avi',

@@ -1251,6 +1251,7 @@ export enum InteractionState {
     pause = "pause",
     seek = "seek",
     speed = "speed",
+    volume = "volume",
 }
 
 export enum ReadyState {
@@ -1272,6 +1273,7 @@ export interface IEventABRPlayerInteraction {
     playhead_ms: number,
     playhead_frame?: number,
     speed?: number,
+    volume?: number,
 }
 
 export interface IEventABRRebuffer {
