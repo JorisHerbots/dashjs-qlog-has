@@ -97,14 +97,62 @@ export class dashjs_qlog_player {
         this.player.initialize();
         await this.videoQlog.init(undefined);
 
+        const mediaPlayerEvents = dashjs.MediaPlayer.events;
+        for (const eventKey in mediaPlayerEvents) {
+            //@ts-expect-error
+            const eventValue = mediaPlayerEvents[eventKey];
+
+            if ([ // buffer events
+                mediaPlayerEvents.BUFFER_EMPTY,
+                mediaPlayerEvents.BUFFER_LOADED,
+                mediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED,
+                mediaPlayerEvents.BUFFER_LEVEL_UPDATED
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookBufferUpdate(<IArguments>hookArguments) });
+
+            } else if ([ // progress events
+                mediaPlayerEvents.PLAYBACK_TIME_UPDATED
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookProgress(<IArguments>hookArguments) });
+
+            } else if ([ // error events
+                mediaPlayerEvents.PLAYBACK_NOT_ALLOWED
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookError(<IArguments>hookArguments) });
+
+            } else if ([    // ignored events
+                mediaPlayerEvents.METRICS_CHANGED,      // no data
+                mediaPlayerEvents.METRIC_CHANGED,       // only mediaType
+                mediaPlayerEvents.PLAYBACK_PROGRESS,    // no data
+                mediaPlayerEvents.PLAYBACK_PLAYING,     // no data
+                mediaPlayerEvents.PLAYBACK_PAUSED,      // no data
+                mediaPlayerEvents.PLAYBACK_SEEKED,      // no data
+                mediaPlayerEvents.PLAYBACK_SEEKING,     // redundant, caught by playerinteraction
+                mediaPlayerEvents.PLAYBACK_LOADED_DATA, // no data
+                mediaPlayerEvents.STREAM_INITIALIZED,   // redundant, done manually
+                mediaPlayerEvents.PLAYBACK_METADATA_LOADED, // redundant, done manually (stream initialised)
+                mediaPlayerEvents.CAN_PLAY,             // no data
+                mediaPlayerEvents.CAN_PLAY_THROUGH,     // no data
+            ].includes(eventValue)) {
+                // no hook placed
+                // console.log('ignored', eventValue)
+
+            } else { // default dummy hook
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookDummy(<IArguments>hookArguments) });
+                console.log('dummied event:', eventKey);
+            }
+        }
+
         await new Promise((resolve, reject) => {
             this.player.retrieveManifest(this.url, async (manifest, error) => {
 
                 if (error) {
+                    this.videoQlog.onError(-1, error);
                     reject(error);
                 }
     
                 if (manifest === null) {
+                    this.videoQlog.onError(-1, 'no metadata');
                     reject("null manifest")
                     return;
                 }
