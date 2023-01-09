@@ -19,6 +19,7 @@ export class dashjs_qlog_player {
     private active: boolean;
     private video: HTMLVideoElement;
     private url: string;
+    private manifest: any;
     private autosave: boolean;
     private player: dashjs.MediaPlayerClass;
     private eventPoller: NodeJS.Timer | undefined;
@@ -40,6 +41,7 @@ export class dashjs_qlog_player {
         this.active = false;
         this.video = video_element;
         this.url = url;
+        this.manifest = undefined;
         this.autoplay = false;
         this.autosave = autosave;
         this.player = dashjs.MediaPlayer().create();
@@ -115,7 +117,10 @@ export class dashjs_qlog_player {
                 await this.videoQlog.onStreamInitialised(this.url, this.autoplay, "manifest.json");
                 await this.videoQlog.onReadystateChange(this.video.readyState);
     
+                this.manifest = manifest;
+                if (this.autosave) {
                 this.generateAutomaticDownloadEvent("manifest.json", JSON.stringify(manifest));
+                }
 
                 // https://html.spec.whatwg.org/multipage/media.html#mediaevents
                 this.video.addEventListener('canplay', e => { this.videoQlog.onReadystateChange(this.video.readyState); });
@@ -212,6 +217,14 @@ export class dashjs_qlog_player {
     public async downloadCurrentLog() {
         let data = await this.videoQlog.generateBlob();
         this.generateAutomaticDownloadEvent("dashjs.qlog", data);
+    }
+
+    public async downloadManifest() {
+        if (this.manifest) {
+            this.generateAutomaticDownloadEvent("manifest.json", JSON.stringify(this.manifest));
+        } else {
+            console.error("manifest not available");
+        }
     }
 
     public wipeDatabases() {
