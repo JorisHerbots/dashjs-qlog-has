@@ -1,16 +1,17 @@
 import dashjs from "dashjs";
-import * as DashjsQlog from "./dashjsQlog"
 import * as VideoQlog from "./videoQlog"
 import * as qlog from "./qlog-schema"
 
 class LoggingHelpers {
     public lastRepresentation: string;
-    public lastBufferLevel: number;
+    public lastBufferLevelVideo: number;
+    public lastBufferLevelAudio: number;
     public lastDecodedByteCount: number;
 
     constructor() {
         this.lastRepresentation = "";
-        this.lastBufferLevel = -1;
+        this.lastBufferLevelVideo = -1;
+        this.lastBufferLevelAudio = -1;
         this.lastDecodedByteCount = 0;
     }
 }
@@ -25,7 +26,6 @@ export class dashjs_qlog_player {
     private eventPoller: NodeJS.Timer | undefined;
     private eventPollerChrome: NodeJS.Timer | undefined;
     private videoQlog: VideoQlog.VideoQlog;
-    private dashjsQlog: DashjsQlog.DashjsQlog;
     private statusBox: HTMLElement;
     private statusItems: { [key: string]: HTMLElement };
     private loggingHelpers: LoggingHelpers;
@@ -48,7 +48,6 @@ export class dashjs_qlog_player {
         this.videoQlog = new VideoQlog.VideoQlog();
         this.eventPoller = undefined;
         this.eventPollerChrome = undefined;
-        this.dashjsQlog = new DashjsQlog.DashjsQlog(this.player, dashjs.MediaPlayer.events);
         this.statusBox = statusBox;
         this.statusItems = {};
         this.setStatus('status', 'uninitialised', 'black');
@@ -167,18 +166,24 @@ export class dashjs_qlog_player {
                 return rep.id === repSwitch.to;
             }) : undefined;
 
-            let bufferLevel = dashMetrics.getCurrentBufferLevel('video');
+            let bufferLevelVideo = dashMetrics.getCurrentBufferLevel('video');
+            let bufferLevelAudio = dashMetrics.getCurrentBufferLevel('audio');
             //@ts-expect-error
             let bitrate = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation(repSwitch.to, periodIdx) / 1000) : NaN;
             let frameRate = adaptationInfo ? adaptationInfo.frameRate : 0;
 
-            this.setStatus('buffer level', bufferLevel + " s", 'black');
+            this.setStatus('buffer level (video)', bufferLevelVideo + " s", 'black');
+            this.setStatus('buffer level (audio)', bufferLevelAudio + " s", 'black');
             this.setStatus('framerate', frameRate + " fps", 'black');
             this.setStatus('bitrate', bitrate + " Kbps", 'black');
 
-            if (this.loggingHelpers.lastBufferLevel !== bufferLevel) {
-                await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevel * 1000);
-                this.loggingHelpers.lastBufferLevel = bufferLevel;
+            if (this.loggingHelpers.lastBufferLevelVideo !== bufferLevelVideo) {
+                await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.video, bufferLevelVideo * 1000);
+                this.loggingHelpers.lastBufferLevelVideo = bufferLevelVideo;
+            }
+            if (this.loggingHelpers.lastBufferLevelAudio !== bufferLevelAudio) {
+                await this.videoQlog.onBufferLevelUpdate(qlog.MediaType.audio, bufferLevelAudio * 1000);
+                this.loggingHelpers.lastBufferLevelAudio = bufferLevelAudio;
             }
 
             if (adaptationInfo && this.loggingHelpers.lastRepresentation !== adaptationInfo.id) {
@@ -196,9 +201,39 @@ export class dashjs_qlog_player {
         this.loggingHelpers.lastDecodedByteCount = this.video.webkitVideoDecodedByteCount;
     }
 
+    private async mediaplayerHookDummy(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        let dummy_string = "dummy hook"
+        for (let index = 0; index < hookArguments.length; index++) {
+            const argument = hookArguments[index];
+            dummy_string += `\t${argument.type}`
+            if (argument.message) {
+                dummy_string += `{${argument.message}}`
+            }
+        }
+        console.warn(dummy_string, hookArguments);
+    }
+
+    private async mediaplayerHookError(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        const data = hookArguments[0];
+        this.videoQlog.onError(-1, data['type']);
+    }
+
+    private async mediaplayerHookBufferUpdate(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        const data = hookArguments[0];
+        this.videoQlog.onBufferLevelUpdate(data['mediaType'], data['bufferLevel'] * 1000, data['streamId']);
+    }
+
+    private async mediaplayerHookProgress(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        const data = hookArguments[0];
+        this.videoQlog.onPlayheadProgress(data['time'] * 1000, data['timeToEnd'] * 1000, data['streamId']);
+    }
+
     public async startLogging() {
         this.active = true;
-        this.dashjsQlog.active = true;
         this.eventPoller = setInterval(() => { this.eventPollerFunction() }, dashjs_qlog_player.eventPollerInterval);
         //@ts-expect-error
         if (this.video.webkitVideoDecodedByteCount !== undefined) {
@@ -209,7 +244,6 @@ export class dashjs_qlog_player {
 
     public async stopLogging() {
         this.active = false;
-        this.dashjsQlog.active = false;
         clearInterval(this.eventPoller);
         clearInterval(this.eventPollerChrome);
     }

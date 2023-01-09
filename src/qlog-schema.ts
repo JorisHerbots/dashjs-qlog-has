@@ -1289,6 +1289,8 @@ export interface IEventABRStreamEnd {
 export interface IEventABRPlayheadProgress {
     playhead_ms: number,
     playhead_frame?: number,
+    remaining_ms?: number,
+    stream_id?: string,
 }
 
 export interface IEventABRSwitch {
@@ -1320,6 +1322,7 @@ export interface IEventABRAbort {
 
 export interface IEventABRBufferOccupancy {
     media_type: MediaType,
+    stream_id?: string,
     playout_ms: number,
     playout_bytes?: number,
     playout_frames?: number,
