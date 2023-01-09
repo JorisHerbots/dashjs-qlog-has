@@ -1204,7 +1204,7 @@ export interface IQPACKHeaderBlockPrefix {
 // Adaptive BitRate streaming
 
 export type ABREventTypes = PlaybackEventType | ABREventType | BufferEventType | NetworkEventType;
-export type ABREventData = IEventABRSwitch | IEventABRReadystateChange | IEventABRBufferOccupancy | IEventABRRequest | IEventABRRequestUpdate | IEventABRAbort | IEventABRStreamInitialised | IEventABRPlayerInteraction | IEventABRRebuffer | IEventABRStreamEnd | IEventABRPlayheadProgress;
+export type ABREventData = IEventABRSwitch | IEventABRReadystateChange | IEventABRBufferOccupancy | IEventABRRequest | IEventABRRequestUpdate | IEventABRAbort | IEventABRStreamInitialised | IEventABRPlayerInteraction | IEventABRRebuffer | IEventABRStreamEnd | IEventABRPlayheadProgress | IEventABRStreamMetrics;
 
 // export type VideoEventType = IBufferLevelUpdate | IPlayerInteraction | IRepresentationSwitch;
 
@@ -1223,6 +1223,7 @@ export enum PlaybackEventType {
 export enum ABREventType {
     switch = "switch",
     readystate_change = "readystate_change",
+    metrics_updated = "metrics_updated",
 }
 
 export enum BufferEventType {
@@ -1279,6 +1280,7 @@ export interface IEventABRPlayerInteraction {
 export interface IEventABRRebuffer {
     playhead_ms: number,
     playhead_frame?: number,
+    stream_id?: string,
 }
 
 export interface IEventABRStreamEnd {
@@ -1326,6 +1328,17 @@ export interface IEventABRBufferOccupancy {
     playout_ms: number,
     playout_bytes?: number,
     playout_frames?: number,
+}
+
+export interface IEventABRStreamMetrics {
+    min_rtt?:number,
+    smoothed_rtt?:number,
+    latest_rtt?:number,
+    rtt_variance?:number,
+
+    bitrate?: number,
+
+    dropped_frames?: number,
 }
 
 ///////////////////////////////////////////////////////////////////////////

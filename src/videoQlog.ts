@@ -186,10 +186,13 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData("video", qlog.BufferEventType.occupancy_update, eventData));
     }
 
-    public async onRebuffer(level: number) {
+    public async onRebuffer(playhead: number, streamId?: string) {
         let eventData: qlog.IEventABRRebuffer = {
-            playhead_ms: level
+            playhead_ms: playhead
         };
+        if (streamId !== undefined) {
+            eventData.stream_id = streamId;
+        }
         await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.rebuffer, eventData));
     }
 
@@ -253,6 +256,11 @@ export class VideoQlog {
             bytes_received: bytes_received,
         };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.request_update, eventData));
+    }
+
+    public async UpdateMetrics(metrics: qlog.IEventABRStreamMetrics) {
+        let eventData: qlog.IEventABRStreamMetrics = metrics;
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.metrics_updated, eventData));
     }
 }
 
