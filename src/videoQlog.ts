@@ -106,7 +106,6 @@ export class VideoQlog {
     }
 
     private async registerEvent(eventData: IVideoEvent) {
-        console.log(eventData);
         await this.logDatabase.put("events", eventData);
     }
 
@@ -272,7 +271,6 @@ export class VideoQlogOverviewManager {
 
     public async clearAll() {
         let databaseNames: string[] = await this.overviewDatabase.getAll("overview");
-        // console.log(databaseNames);
         databaseNames.forEach(database => {
             idb.deleteDB(database);
         });

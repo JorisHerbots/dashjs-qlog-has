@@ -150,34 +150,34 @@ export class dashjs_qlog_player {
                     this.videoQlog.onError(-1, error);
                     reject(error);
                 }
-    
+
                 if (manifest === null) {
                     this.videoQlog.onError(-1, 'no metadata');
                     reject("null manifest")
                     return;
                 }
-    
+
                 this.player.attachView(this.video);
                 this.player.attachSource(manifest);
                 this.player.setAutoPlay(this.autoplay);
-    
+
                 await this.videoQlog.onStreamInitialised(this.url, this.autoplay, "manifest.json");
                 await this.videoQlog.onReadystateChange(this.video.readyState);
-    
+
                 this.manifest = manifest;
                 if (this.autosave) {
-                this.generateAutomaticDownloadEvent("manifest.json", JSON.stringify(manifest));
+                    this.generateAutomaticDownloadEvent("manifest.json", JSON.stringify(manifest));
                 }
 
                 // https://html.spec.whatwg.org/multipage/media.html#mediaevents
                 this.video.addEventListener('canplay', e => { this.videoQlog.onReadystateChange(this.video.readyState); });
                 this.video.addEventListener('play', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.play, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
-                this.video.addEventListener('waiting', e => { console.warn("waiting"); console.log(e); });
-                this.video.addEventListener('playing', e => { console.warn("playing"); console.log(e); });
+                // this.video.addEventListener('waiting', e => { console.warn("waiting"); console.warn(e); });
+                // this.video.addEventListener('playing', e => { console.warn("playing"); console.warn(e); });
                 this.video.addEventListener('pause', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.pause, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
                 this.video.addEventListener('error', e => { this.videoQlog.onError(-1, e.message); });
                 this.video.addEventListener('seeking', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.seek, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
-                this.video.addEventListener('seeked', e => { console.warn("seeked"); console.log(e); });
+                // this.video.addEventListener('seeked', e => { console.warn("seeked"); console.warn(e); });
                 this.video.addEventListener('timeupdate', e => { this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000); });
                 this.video.addEventListener('progress', e => this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000));
                 this.video.addEventListener('ratechange', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.speed, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
@@ -186,8 +186,8 @@ export class dashjs_qlog_player {
                 this.video.addEventListener('canplay', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('canplaythrough', e => this.videoQlog.onReadystateChange(this.video.readyState));
                 this.video.addEventListener('stalled', e => this.videoQlog.onRebuffer(this.video.currentTime * 1000));
-                this.video.addEventListener('ended', e => { console.warn("ended"); console.log(e); });
-                this.video.addEventListener('resize', e => { console.warn("resize"); console.log(e); });
+                // this.video.addEventListener('ended', e => { console.warn("ended"); console.warn(e); });
+                // this.video.addEventListener('resize', e => { console.warn("resize"); console.warn(e); });
                 this.video.addEventListener('volumechange', e => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.volume, this.video.currentTime * 1000, this.video.playbackRate, this.video.volume) });
 
                 resolve(undefined);
