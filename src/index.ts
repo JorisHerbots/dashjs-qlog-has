@@ -126,6 +126,21 @@ export class dashjs_qlog_player {
             ].includes(eventValue)) {
                 this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookRequestUpdate(<IArguments>hookArguments) });
 
+            } else if ([ // fragment loading started events
+                mediaPlayerEvents.FRAGMENT_LOADING_ABANDONED
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookRequestAbort(<IArguments>hookArguments) });
+
+            } else if ([ // switch events
+                mediaPlayerEvents.TRACK_CHANGE_RENDERED
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookSwitch(<IArguments>hookArguments) });
+
+            } else if ([ // quality change events
+                mediaPlayerEvents.QUALITY_CHANGE_RENDERED
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookQualityChange(<IArguments>hookArguments) });
+
             } else if ([ // metric added events
                 mediaPlayerEvents.METRIC_ADDED
             ].includes(eventValue)) {
@@ -139,6 +154,7 @@ export class dashjs_qlog_player {
             } else if ([    // ignored events
                 mediaPlayerEvents.METRICS_CHANGED,      // no data
                 mediaPlayerEvents.METRIC_CHANGED,       // only mediaType
+                mediaPlayerEvents.PLAYBACK_STARTED,     // no data
                 mediaPlayerEvents.PLAYBACK_PROGRESS,    // no data
                 mediaPlayerEvents.PLAYBACK_PLAYING,     // no data
                 mediaPlayerEvents.PLAYBACK_WAITING,     // no data
@@ -256,7 +272,7 @@ export class dashjs_qlog_player {
                 this.loggingHelpers.lastBufferLevelAudio = bufferLevelAudio;
             }
             if (this.loggingHelpers.lastBitRate !== bitrate) {
-                await this.videoQlog.UpdateMetrics({bitrate: bitrate});
+                await this.videoQlog.UpdateMetrics({ bitrate: bitrate });
                 this.loggingHelpers.lastBitRate = bitrate;
             }
 
@@ -294,10 +310,10 @@ export class dashjs_qlog_player {
         const metric = data['metric'];
         const metricData = data['value'];
 
-        if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList'].includes(metric)) {
+        if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList'].includes(metric)) {
             //ignore, no useful or redundant data
         } else if (['DroppedFrames'].includes(metric)) {
-            this.videoQlog.UpdateMetrics({dropped_frames: metricData['droppedFrames']});
+            this.videoQlog.UpdateMetrics({ dropped_frames: metricData['droppedFrames'] });
         } else {
             console.warn('metric added', metric, data);
         }
@@ -337,6 +353,32 @@ export class dashjs_qlog_player {
         if (!this.active) { return; }
         const data = hookArguments[0];
         this.videoQlog.onRequestUpdate(data['request']['url'], data['request']['bytesLoaded']);
+    }
+
+    private async mediaplayerHookRequestAbort(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        const data = hookArguments[0];
+        this.videoQlog.onRequestAbort(data['request']['url']);
+    }
+
+    private async mediaplayerHookSwitch(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        const data = hookArguments[0];
+        if (data['oldMediaInfo'] && data['oldMediaInfo']['index']) {
+            this.videoQlog.onQualityChange(data['mediaType'], data['newMediaInfo']['index'], data['oldMediaInfo']['index']);
+        } else {
+            this.videoQlog.onSwitch(data['mediaType'], data['newMediaInfo']['index']);
+        }
+    }
+
+    private async mediaplayerHookQualityChange(hookArguments: IArguments) {
+        if (!this.active) { return; }
+        const data = hookArguments[0];
+        if (data['oldQuality']) {
+            this.videoQlog.onQualityChange(data['mediaType'], data['newQuality'], data['oldQuality']);
+        } else {
+            this.videoQlog.onQualityChange(data['mediaType'], data['newQuality']);
+        }
     }
 
     public async startLogging() {

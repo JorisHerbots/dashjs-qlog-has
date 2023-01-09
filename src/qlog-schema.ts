@@ -1218,6 +1218,7 @@ export enum PlaybackEventType {
     rebuffer = "rebuffer",
     stream_end = "stream_end",
     playhead_progress = "playhead_progress",
+    quality_changed = "quality_changed",
 }
 
 export enum ABREventType {
