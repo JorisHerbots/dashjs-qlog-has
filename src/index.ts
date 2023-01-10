@@ -183,25 +183,6 @@ export class dashjs_qlog_player {
                 });
             }
 
-            else if (eventValue == mediaPlayerEvents.METRIC_ADDED) {
-                this.player.on(eventValue, (...hookArguments: any) => {
-                    if (!this.active) { return; }
-                    const data = hookArguments[0];
-                    const metric = data['metric'];
-                    const metricData = data['value'];
-
-                    if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList', 'DVRInfo', 'ManifestUpdate'].includes(metric)) {
-                        //ignore, no useful or redundant data
-                    }
-                    else if (metric == 'DroppedFrames') {
-                        this.videoQlog.UpdateMetrics({ dropped_frames: metricData['droppedFrames'] });
-                    }
-                    else {
-                        console.warn('metric added', metric, data);
-                    }
-                });
-            }
-
             else if ([
                 mediaPlayerEvents.CAN_PLAY,
                 mediaPlayerEvents.CAN_PLAY_THROUGH,
@@ -251,6 +232,28 @@ export class dashjs_qlog_player {
                     this.stopLogging();
                     if (this.autosave) {
                         this.downloadCurrentLog();
+                    }
+                });
+            }
+
+            else if ([
+                mediaPlayerEvents.METRIC_ADDED,
+                mediaPlayerEvents.METRIC_UPDATED,
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    const metric = data['metric'];
+                    const metricData = data['value'];
+
+                    if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList', 'DVRInfo', 'ManifestUpdate', 'ManifestUpdatePeriodInfo', 'ManifestUpdateRepresentationInfo'].includes(metric)) {
+                        //ignore, no useful or redundant data
+                    }
+                    else if (metric == 'DroppedFrames') {
+                        this.videoQlog.UpdateMetrics({ dropped_frames: metricData['droppedFrames'] });
+                    }
+                    else {
+                        console.warn('metric added/updated', metric, data);
                     }
                 });
             }
