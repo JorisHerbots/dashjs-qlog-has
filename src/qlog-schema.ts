@@ -1254,6 +1254,7 @@ export enum InteractionState {
     seek = "seek",
     speed = "speed",
     volume = "volume",
+    resize = "resize",
 }
 
 export enum ReadyState {
@@ -1265,9 +1266,12 @@ export enum ReadyState {
 }
 
 export interface IEventABRStreamInitialised {
+    protocol: string,
     url: string,
+    duration?: number,
     autoplay: boolean,
     manifest?: Object,
+    stream_id?: string,
 }
 
 export interface IEventABRPlayerInteraction {

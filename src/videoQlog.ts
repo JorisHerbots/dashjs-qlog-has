@@ -143,12 +143,8 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.playhead_progress, eventData));
     }
 
-    public async onStreamInitialised(url: string, autoplay: boolean, manifest: Object | undefined) {
-        let eventData: qlog.IEventABRStreamInitialised = {
-            url: url,
-            autoplay: autoplay,
-            manifest: manifest,
-        };
+    public async onStreamInitialised(data: qlog.IEventABRStreamInitialised) {
+        let eventData: qlog.IEventABRStreamInitialised = data;
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.stream_initialised, eventData));
     }
 
@@ -208,7 +204,7 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData("video", qlog.BufferEventType.occupancy_update, eventData));
     }
 
-    public async onRebuffer(playhead: number, streamId?: string) {
+    public async onRebuffer(playhead: number, streamId: string) {
         let eventData: qlog.IEventABRRebuffer = {
             playhead_ms: playhead
         };
@@ -218,13 +214,17 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.rebuffer, eventData));
     }
 
-    public async onPlayerInteraction(action: qlog.InteractionState, playhead_ms: number, playback_rate: number, volume: number) {
+    public async onPlayerInteraction(action: qlog.InteractionState, playhead_ms: number, playback_rate?: number, volume?: number) {
         let eventData: qlog.IEventABRPlayerInteraction = {
             state: action,
             playhead_ms: playhead_ms,
-            speed: playback_rate,
-            volume: volume,
         };
+        if (playback_rate !== undefined) {
+            eventData.speed = playback_rate;
+        }
+        if (volume !== undefined) {
+            eventData.volume = volume;
+        }
         await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.player_interaction, eventData));
     }
 

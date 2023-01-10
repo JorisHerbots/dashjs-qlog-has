@@ -43,8 +43,6 @@
             const t2 = new Date();
             player.setStatus('setup took', (t2 - t1).toString() + " ms", 'black');
             player.setStatus('autosave', autosave.toString(), 'black');
-
-            player.startLogging();
         };
         start();        
     </script>
