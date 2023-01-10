@@ -135,14 +135,14 @@ export class dashjs_qlog_player {
                 });
             }
 
-            else if (eventValue == mediaPlayerEvents.TRACK_CHANGE_RENDERED) {
+            else if (eventValue == mediaPlayerEvents.QUALITY_CHANGE_REQUESTED) {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    if (data['oldMediaInfo'] && data['oldMediaInfo']['index']) {
-                        this.videoQlog.onQualityChange(data['mediaType'], data['newMediaInfo']['index'], data['oldMediaInfo']['index']);
+                    if (data['oldQuality']) {
+                        this.videoQlog.onSwitch(data['mediaType'], data['newQuality'], data['oldQuality']);
                     } else {
-                        this.videoQlog.onSwitch(data['mediaType'], data['newMediaInfo']['index']);
+                        this.videoQlog.onSwitch(data['mediaType'], data['newQuality']);
                     }
                 });
             }
@@ -259,11 +259,14 @@ export class dashjs_qlog_player {
             }
 
             else if ([    // ignored events
+                mediaPlayerEvents.AST_IN_FUTURE,      // not useful
                 mediaPlayerEvents.METRICS_CHANGED,      // no data
                 mediaPlayerEvents.METRIC_CHANGED,       // only mediaType
                 mediaPlayerEvents.PLAYBACK_SEEKED,      // no data
                 mediaPlayerEvents.BUFFER_LOADED,        // no data
                 mediaPlayerEvents.BUFFER_LEVEL_STATE_CHANGED,// no data
+                mediaPlayerEvents.CAPTION_CONTAINER_RESIZE,
+                mediaPlayerEvents.CAPTION_RENDERED,
             ].includes(eventValue)) {
                 // no hook placed
                 // console.log('ignored', eventValue)
