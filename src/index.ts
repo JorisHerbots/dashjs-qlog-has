@@ -66,92 +66,121 @@ export class dashjs_qlog_player {
             }
         });
 
-        /* Extend RequestModifier class and implement our own behaviour */
-        // this.player.extend("RequestModifier", () => {
-        //     return {
-        //         modifyRequestHeader: (xhr: XMLHttpRequest, urlObject: any) => {
-        //             if (!this.active) { return xhr; }
-        //             const url = urlObject.url;
-        //             this.videoQlog.onRequest(url, this.videoQlog.inferMediaTypeFromURL(url));
-        //             xhr.addEventListener('loadend', () => {
-        //                 this.videoQlog.onRequestUpdate(url, xhr.response.byteLength);
-        //             });
-        //             return xhr;
-        //         },
-        //         modifyRequestURL: (url: string) => {
-        //             return url; // unmodified
-        //         },
-        //         modifyRequest: (request: any) => {
-        //             return; // unmodified
-        //         },
-        //     };
-        // }, false);
-
-        this.player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], () => {
-            this.videoQlog.onPlaybackEnded(this.video.currentTime * 1000);
-            this.stopLogging();
-
-            if (this.autosave) {
-                this.downloadCurrentLog();
-            }
-        });
-
         const mediaPlayerEvents = dashjs.MediaPlayer.events;
         for (const eventKey in mediaPlayerEvents) {
             //@ts-expect-error
             const eventValue = mediaPlayerEvents[eventKey];
 
-            if ([ // buffer events
-                mediaPlayerEvents.BUFFER_LEVEL_UPDATED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookBufferUpdate(<IArguments>hookArguments) });
+            if (eventValue == mediaPlayerEvents.BUFFER_LEVEL_UPDATED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onBufferLevelUpdate(data['mediaType'], data['bufferLevel'] * 1000, data['streamId']);
+                });
+            }
 
-            } else if ([ // stall events
-                mediaPlayerEvents.BUFFER_EMPTY
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookRebuffer(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.BUFFER_EMPTY) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onRebuffer(this.video.currentTime * 1000, data['streamId']);
+                });
+            }
 
-            } else if ([ // progress events
-                mediaPlayerEvents.PLAYBACK_TIME_UPDATED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookProgress(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.PLAYBACK_TIME_UPDATED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onPlayheadProgress(data['time'] * 1000, data['timeToEnd'] * 1000, data['streamId']);
+                });
+            }
 
-            } else if ([ // fragment loading started events
-                mediaPlayerEvents.FRAGMENT_LOADING_STARTED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookRequestStarted(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.FRAGMENT_LOADING_STARTED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onRequest(data['request']['url'], data['mediaType']);
+                });
+            }
 
-            } else if ([ // fragment loading started events
-                mediaPlayerEvents.FRAGMENT_LOADING_COMPLETED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookRequestUpdate(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.FRAGMENT_LOADING_COMPLETED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onRequestUpdate(data['request']['url'], data['request']['bytesLoaded']);
+                });
+            }
 
-            } else if ([ // fragment loading started events
-                mediaPlayerEvents.FRAGMENT_LOADING_ABANDONED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookRequestAbort(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.FRAGMENT_LOADING_ABANDONED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onRequestAbort(data['request']['url']);
+                });
+            }
 
-            } else if ([ // switch events
-                mediaPlayerEvents.TRACK_CHANGE_RENDERED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookSwitch(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.TRACK_CHANGE_RENDERED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    if (data['oldMediaInfo'] && data['oldMediaInfo']['index']) {
+                        this.videoQlog.onQualityChange(data['mediaType'], data['newMediaInfo']['index'], data['oldMediaInfo']['index']);
+                    } else {
+                        this.videoQlog.onSwitch(data['mediaType'], data['newMediaInfo']['index']);
+                    }
+                });
+            }
 
-            } else if ([ // quality change events
-                mediaPlayerEvents.QUALITY_CHANGE_RENDERED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookQualityChange(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.QUALITY_CHANGE_RENDERED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    if (data['oldQuality']) {
+                        this.videoQlog.onQualityChange(data['mediaType'], data['newQuality'], data['oldQuality']);
+                    } else {
+                        this.videoQlog.onQualityChange(data['mediaType'], data['newQuality']);
+                    }
+                });
+            }
 
-            } else if ([ // metric added events
-                mediaPlayerEvents.METRIC_ADDED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookMetricAdded(<IArguments>hookArguments) });
+            else if (eventValue == mediaPlayerEvents.METRIC_ADDED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    const metric = data['metric'];
+                    const metricData = data['value'];
 
-            } else if ([ // error events
-                mediaPlayerEvents.PLAYBACK_NOT_ALLOWED
-            ].includes(eventValue)) {
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookError(<IArguments>hookArguments) });
+                    if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList'].includes(metric)) {
+                        //ignore, no useful or redundant data
+                    } else if (['DroppedFrames'].includes(metric)) {
+                        this.videoQlog.UpdateMetrics({ dropped_frames: metricData['droppedFrames'] });
+                    } else {
+                        console.warn('metric added', metric, data);
+                    }
+                });
+            }
 
-            } else if ([    // ignored events
+            else if (eventValue == mediaPlayerEvents.PLAYBACK_NOT_ALLOWED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onError(-1, data['type']);
+                });
+            }
+
+            else if (eventValue == mediaPlayerEvents.PLAYBACK_ENDED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onPlaybackEnded(this.video.currentTime * 1000);
+                    this.stopLogging();
+                    if (this.autosave) {
+                        this.downloadCurrentLog();
+                    }
+                });
+            }
+
+            else if ([    // ignored events
                 mediaPlayerEvents.METRICS_CHANGED,      // no data
                 mediaPlayerEvents.METRIC_CHANGED,       // only mediaType
                 mediaPlayerEvents.PLAYBACK_STARTED,     // no data
@@ -171,9 +200,21 @@ export class dashjs_qlog_player {
             ].includes(eventValue)) {
                 // no hook placed
                 // console.log('ignored', eventValue)
+            }
 
-            } else { // default dummy hook
-                this.player.on(eventValue, (...hookArguments: any) => { this.mediaplayerHookDummy(<IArguments>hookArguments) });
+            else { // default dummy hook
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    let dummy_string = "dummy hook"
+                    for (let index = 0; index < hookArguments.length; index++) {
+                        const argument = hookArguments[index];
+                        dummy_string += `\t${argument.type}`
+                        if (argument.message) {
+                            dummy_string += `{${argument.message}}`
+                        }
+                    }
+                    console.warn(dummy_string, hookArguments);
+                });
                 console.log('dummied event:', eventKey);
             }
         }
@@ -289,96 +330,6 @@ export class dashjs_qlog_player {
         this.setStatus('bitrate (webkit)', Math.round(calculatedBitrate) + " Kbps", 'black')
         //@ts-expect-error
         this.loggingHelpers.lastDecodedByteCount = this.video.webkitVideoDecodedByteCount;
-    }
-
-    private async mediaplayerHookDummy(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        let dummy_string = "dummy hook"
-        for (let index = 0; index < hookArguments.length; index++) {
-            const argument = hookArguments[index];
-            dummy_string += `\t${argument.type}`
-            if (argument.message) {
-                dummy_string += `{${argument.message}}`
-            }
-        }
-        console.warn(dummy_string, hookArguments);
-    }
-
-    private async mediaplayerHookMetricAdded(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        const metric = data['metric'];
-        const metricData = data['value'];
-
-        if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList'].includes(metric)) {
-            //ignore, no useful or redundant data
-        } else if (['DroppedFrames'].includes(metric)) {
-            this.videoQlog.UpdateMetrics({ dropped_frames: metricData['droppedFrames'] });
-        } else {
-            console.warn('metric added', metric, data);
-        }
-    }
-
-    private async mediaplayerHookError(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onError(-1, data['type']);
-    }
-
-    private async mediaplayerHookBufferUpdate(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onBufferLevelUpdate(data['mediaType'], data['bufferLevel'] * 1000, data['streamId']);
-    }
-
-    private async mediaplayerHookRebuffer(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onRebuffer(this.video.currentTime * 1000, data['streamId']);
-    }
-
-    private async mediaplayerHookProgress(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onPlayheadProgress(data['time'] * 1000, data['timeToEnd'] * 1000, data['streamId']);
-    }
-
-    private async mediaplayerHookRequestStarted(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onRequest(data['request']['url'], data['mediaType']);
-    }
-
-    private async mediaplayerHookRequestUpdate(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onRequestUpdate(data['request']['url'], data['request']['bytesLoaded']);
-    }
-
-    private async mediaplayerHookRequestAbort(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        this.videoQlog.onRequestAbort(data['request']['url']);
-    }
-
-    private async mediaplayerHookSwitch(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        if (data['oldMediaInfo'] && data['oldMediaInfo']['index']) {
-            this.videoQlog.onQualityChange(data['mediaType'], data['newMediaInfo']['index'], data['oldMediaInfo']['index']);
-        } else {
-            this.videoQlog.onSwitch(data['mediaType'], data['newMediaInfo']['index']);
-        }
-    }
-
-    private async mediaplayerHookQualityChange(hookArguments: IArguments) {
-        if (!this.active) { return; }
-        const data = hookArguments[0];
-        if (data['oldQuality']) {
-            this.videoQlog.onQualityChange(data['mediaType'], data['newQuality'], data['oldQuality']);
-        } else {
-            this.videoQlog.onQualityChange(data['mediaType'], data['newQuality']);
-        }
     }
 
     public async startLogging() {
