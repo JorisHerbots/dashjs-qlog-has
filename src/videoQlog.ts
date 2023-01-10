@@ -272,11 +272,14 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.request, eventData));
     }
 
-    public async onRequestUpdate(url: string, bytes_received: number) {
+    public async onRequestUpdate(url: string, bytes_received: number, rtt?: number) {
         let eventData: qlog.IEventABRRequestUpdate = {
             resource_url: url,
             bytes_received: bytes_received,
         };
+        if (rtt !== undefined) {
+            eventData.rtt = rtt;
+        }
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.request_update, eventData));
     }
 

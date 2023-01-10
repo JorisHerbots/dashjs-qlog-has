@@ -1320,7 +1320,8 @@ export interface IEventABRRequest {
 
 export interface IEventABRRequestUpdate {
     resource_url: string,
-    bytes_received: number
+    bytes_received: number,
+    rtt?: number,
 }
 
 export interface IEventABRAbort {

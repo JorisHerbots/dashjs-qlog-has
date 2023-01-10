@@ -114,8 +114,7 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    this.videoQlog.onRequestUpdate(data['request']['url'], data['request']['bytesLoaded']);
-                    //TODO RTT etc.
+                    this.videoQlog.onRequestUpdate(data['request']['url'], data['request']['bytesLoaded'], data['request']['requestEndDate'] - data['request']['requestStartDate']);
                 });
             }
 
@@ -124,6 +123,15 @@ export class dashjs_qlog_player {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
                     this.videoQlog.onRequestAbort(data['request']['url']);
+                });
+            }
+
+            else if (eventValue == mediaPlayerEvents.MANIFEST_LOADED) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    this.videoQlog.onRequestUpdate(this.url, 0);
+                    //TODO size and rtt
                 });
             }
 
@@ -182,11 +190,13 @@ export class dashjs_qlog_player {
                     const metric = data['metric'];
                     const metricData = data['value'];
 
-                    if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList', 'DVRInfo'].includes(metric)) {
+                    if (['BufferLevel', 'HttpList', 'BufferState', 'SchedulingInfo', 'RequestsQueue', 'PlayList', 'RepSwitchList', 'DVRInfo', 'ManifestUpdate'].includes(metric)) {
                         //ignore, no useful or redundant data
-                    } else if (['DroppedFrames'].includes(metric)) {
+                    }
+                    else if (metric == 'DroppedFrames') {
                         this.videoQlog.UpdateMetrics({ dropped_frames: metricData['droppedFrames'] });
-                    } else {
+                    }
+                    else {
                         console.warn('metric added', metric, data);
                     }
                 });
@@ -296,6 +306,7 @@ export class dashjs_qlog_player {
         await this.videoQlog.onReadystateChange(this.video.readyState);
 
         await new Promise((resolve, reject) => {
+            this.videoQlog.onRequest(this.url, qlog.MediaType.other);
             this.player.retrieveManifest(this.url, async (manifest, error) => {
 
                 if (error) {
