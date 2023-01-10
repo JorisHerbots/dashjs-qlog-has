@@ -115,6 +115,7 @@ export class dashjs_qlog_player {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
                     this.videoQlog.onRequestUpdate(data['request']['url'], data['request']['bytesLoaded']);
+                    //TODO RTT etc.
                 });
             }
 
@@ -274,10 +275,22 @@ export class dashjs_qlog_player {
 
         // user interaction with player
         // https://html.spec.whatwg.org/multipage/media.html#mediaevents
-        this.video.addEventListener('play', () => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.play, this.video.currentTime * 1000) });
-        this.video.addEventListener('pause', () => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.pause, this.video.currentTime * 1000) });
-        this.video.addEventListener('resize', () => { this.videoQlog.onPlayerInteraction(qlog.InteractionState.resize, this.video.currentTime * 1000) });
-        this.video.addEventListener('error', (e) => { this.videoQlog.onError(-1, e.message); });
+        this.video.addEventListener('play', () => {
+            if (!this.active) { return; }
+            this.videoQlog.onPlayerInteraction(qlog.InteractionState.play, this.video.currentTime * 1000);
+        });
+        this.video.addEventListener('pause', () => {
+            if (!this.active) { return; }
+            this.videoQlog.onPlayerInteraction(qlog.InteractionState.pause, this.video.currentTime * 1000);
+        });
+        this.video.addEventListener('resize', () => {
+            if (!this.active) { return; }
+            this.videoQlog.onPlayerInteraction(qlog.InteractionState.resize, this.video.currentTime * 1000);
+        });
+        this.video.addEventListener('error', (e) => {
+            if (!this.active) { return; }
+            this.videoQlog.onError(-1, e.message);
+        });
 
         this.player.initialize();
         await this.videoQlog.onReadystateChange(this.video.readyState);
