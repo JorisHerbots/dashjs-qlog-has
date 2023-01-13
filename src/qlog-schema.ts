@@ -1204,7 +1204,10 @@ export interface IQPACKHeaderBlockPrefix {
 // Adaptive BitRate streaming
 
 export type ABREventTypes = PlaybackEventType | ABREventType | BufferEventType | NetworkEventType;
-export type ABREventData = IEventABRSwitch | IEventABRReadystateChange | IEventABRBufferOccupancy | IEventABRRequest | IEventABRRequestUpdate | IEventABRAbort | IEventABRStreamInitialised | IEventABRPlayerInteraction | IEventABRRebuffer | IEventABRStreamEnd | IEventABRPlayheadProgress | IEventABRStreamMetrics;
+export type ABREventData = IEventPlaybackStreamInitialised | IEventPlaybackStreamEnd | IEventPlaybackStall |  IEventPlaybackPlayerInteraction | IEventPlaybackPlayerState | IEventPlaybackPlayheadProgress | IEventPlaybackMetadataLoaded |
+ IEventABRRepresentationSwitch | IEventABRReadystateChange | IEventABRStreamMetrics |
+ IEventBufferOccupancyUpdate |
+ IEventNetworkRequest | IEventNetworkRequestUpdate | IEventNetworkRequestAbort;
 
 // export type VideoEventType = IBufferLevelUpdate | IPlayerInteraction | IRepresentationSwitch;
 
@@ -1215,14 +1218,16 @@ export type ABREventData = IEventABRSwitch | IEventABRReadystateChange | IEventA
 export enum PlaybackEventType {
     stream_initialised = "stream_initialised",
     player_interaction = "player_interaction",
-    rebuffer = "rebuffer",
+    player_state = "player_state",
+    stall = "stall",
     stream_end = "stream_end",
     playhead_progress = "playhead_progress",
     quality_changed = "quality_changed",
+    metadata_loaded = "metadata_loaded",
 }
 
 export enum ABREventType {
-    switch = "switch",
+    representation_switch = "representation_switch",
     readystate_change = "readystate_change",
     metrics_updated = "metrics_updated",
 }
@@ -1234,17 +1239,30 @@ export enum BufferEventType {
 export enum NetworkEventType {
     request = "request",
     request_update = "request_update",
-    abort = "abort",
+    request_abort = "request_abort",
 }
 
 /////////////////////////
 // ABR Event Data fields
 /////////////////////////
 
+export enum Protocol {
+    progressive = "progressive",
+    dash = "DASH",
+    hls = "HLS",
+    MSS = "mss",
+}
+
+export enum StreamType {
+    static = "static",
+    dynamic = "dynamic",
+}
+
 export enum MediaType {
     video = "video",
     audio = "audio",
     subtitles = "subtitles",
+    manifest = "manifest",
     other = "other"
 }
 
@@ -1252,9 +1270,15 @@ export enum InteractionState {
     play = "play",
     pause = "pause",
     seek = "seek",
-    speed = "speed",
+    playback_rate = "playback_rate",
     volume = "volume",
     resize = "resize",
+}
+
+export enum PlaybackState {
+    playing = "playing",
+    paused = "paused",
+    stopped = "stopped",
 }
 
 export enum ReadyState {
@@ -1265,75 +1289,75 @@ export enum ReadyState {
     have_enough_data
 }
 
-export interface IEventABRStreamInitialised {
-    protocol: string,
-    url: string,
-    duration?: number,
-    autoplay: boolean,
-    manifest?: Object,
-    stream_id?: string,
+export interface Playhead {
+    ms: number,
+    frames?: number,
+    bytes?: number,
 }
 
-export interface IEventABRPlayerInteraction {
+export interface Buffer {
+    level_ms: number,
+    target_ms?: number,
+    level_frames?: number,
+    level_bytes?: number,
+}
+
+export interface Representation {
+    id: string,
+    bitrate?: number,
+}
+
+export interface IEventPlaybackStreamInitialised {
+    autoplay: boolean,
+}
+
+export interface IEventPlaybackStreamEnd {
+    playhead?: Playhead
+}
+
+export interface IEventPlaybackMetadataLoaded {
+    protocol: Protocol,
+    stream_type: StreamType,
+    url: string,
+    media_duration?: number,
+    manifest?: Object,
+}
+
+export interface IEventPlaybackPlayerInteraction {
     state: InteractionState,
-    playhead_ms: number,
-    playhead_frame?: number,
-    speed?: number,
+    playhead: Playhead,
+    playback_rate?: number,
     volume?: number,
 }
 
-export interface IEventABRRebuffer {
-    playhead_ms: number,
-    playhead_frame?: number,
-    stream_id?: string,
+export interface IEventPlaybackPlayerState {
+    state: PlaybackState,
+    playhead: Playhead,
 }
 
-export interface IEventABRStreamEnd {
-    playhead_ms?: number,
-    playhead_frame?: number,
+export interface IEventPlaybackStall {
+    playhead: Playhead,
 }
 
-export interface IEventABRPlayheadProgress {
-    playhead_ms: number,
-    playhead_frame?: number,
-    remaining_ms?: number,
-    stream_id?: string,
+export interface IEventPlaybackPlayheadProgress {
+    playhead: Playhead
+    remaining?: Playhead,
 }
 
-export interface IEventABRSwitch {
-    from_id?: string,
-    from_bitrate?: number,
-    to_id: string,
-    to_bitrate?: number,
+export interface IEventPlaybackQualityChanged {
     media_type: MediaType,
+    to: Representation,
+    from?: Representation, 
+}
+
+export interface IEventABRRepresentationSwitch {
+    media_type: MediaType,
+    to: Representation,
+    from?: Representation, 
 }
 
 export interface IEventABRReadystateChange {
     state: ReadyState,
-}
-
-export interface IEventABRRequest {
-    resource_url: string,
-    range?: string,
-    media_type: MediaType,
-}
-
-export interface IEventABRRequestUpdate {
-    resource_url: string,
-    bytes_received: number,
-    rtt?: number,
-}
-
-export interface IEventABRAbort {
-    resource_url: string
-}
-
-export interface IEventABRBufferOccupancy {
-    media_type: MediaType,
-    stream_id?: string,
-    playout_ms: number,
-    playout_bytes?: number,
-    playout_frames?: number,
 }
 
 export interface IEventABRStreamMetrics {
@@ -1346,6 +1370,29 @@ export interface IEventABRStreamMetrics {
 
     dropped_frames?: number,
 }
+
+export interface IEventBufferOccupancyUpdate {
+    media_type: MediaType,
+    buffer: Buffer,
+}
+
+export interface IEventNetworkRequest {
+    resource_url: string,
+    range?: string,
+    media_type: MediaType,
+}
+
+export interface IEventNetworkRequestUpdate {
+    resource_url: string,
+    bytes_received: number,
+    rtt?: number,
+}
+
+export interface IEventNetworkRequestAbort {
+    resource_url: string
+}
+
+
 
 ///////////////////////////////////////////////////////////////////////////
 

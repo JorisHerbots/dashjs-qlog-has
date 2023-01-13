@@ -124,64 +124,86 @@ export class VideoQlog {
     }
 
     public async onPlaybackEnded(timestamp: number) {
-        let eventData: qlog.IEventABRStreamEnd = {
-            playhead_ms: timestamp
+        let eventData: qlog.IEventPlaybackStreamEnd = {
+            playhead: {
+                ms: timestamp
+            }
         };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.stream_end, eventData));
     }
 
-    public async onPlayheadProgress(timestamp: number, timeToEnd?: number, streamId?: string) {
-        let eventData: qlog.IEventABRPlayheadProgress = {
-            playhead_ms: timestamp
+    public async onPlayheadProgress(timestamp: number, timeToEnd?: number) {
+        let eventData: qlog.IEventPlaybackPlayheadProgress = {
+            playhead: {
+                ms: timestamp
+            }
         };
         if (timeToEnd !== undefined) {
-            eventData.remaining_ms = timeToEnd;
-        }
-        if (streamId !== undefined) {
-            eventData.stream_id = streamId;
+            eventData.remaining = { ms: timeToEnd };
         }
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.playhead_progress, eventData));
     }
 
-    public async onStreamInitialised(data: qlog.IEventABRStreamInitialised) {
-        let eventData: qlog.IEventABRStreamInitialised = data;
+    public async onStreamInitialised(autoplay: boolean) {
+        let eventData: qlog.IEventPlaybackStreamInitialised = {
+            autoplay: autoplay,
+        };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.stream_initialised, eventData));
     }
 
+    public async onMetadataLoaded(protocol: qlog.Protocol, stream_type: qlog.StreamType, url: string, manifest_path: string, duration: number) {
+        let eventData: qlog.IEventPlaybackMetadataLoaded = {
+            protocol: protocol,
+            stream_type: stream_type,
+            url: url,
+            manifest: manifest_path,
+            media_duration: duration,
+        };
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.metadata_loaded, eventData));
+    }
+
     public async onStreamEnded(timestamp: number) {
-        let eventData: qlog.IEventABRStreamEnd = {
-            playhead_ms: timestamp
+        let eventData: qlog.IEventPlaybackStreamEnd = {
+            playhead: {
+                ms: timestamp
+            }
         };
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.stream_end, eventData));
     }
 
-    public async onRepresentationSwitch(mediaType: qlog.MediaType, newRepName: string, bitrate: number) {
-        let eventData: qlog.IEventABRSwitch = {
-            media_type: mediaType,
-            to_id: newRepName,
-            to_bitrate: bitrate
-        };
-        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.switch, eventData));
-    }
+    // public async onRepresentationSwitch(mediaType: qlog.MediaType, newRepName: string, bitrate: number) {
+    //     let eventData: qlog.IEventABRRepresentationSwitch = {
+    //         media_type: mediaType,
+    //         to: {
+    //             id: newRepName,
+    //             bitrate: bitrate,
+    //         }
+    //     };
+    //     await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.representation_switch, eventData));
+    // }
 
-    public async onSwitch(mediaType: qlog.MediaType, to: string, from?: string) {
-        let eventData: qlog.IEventABRSwitch = {
+    public async onRepresentationSwitch(mediaType: qlog.MediaType, to: string, from?: string) {
+        let eventData: qlog.IEventABRRepresentationSwitch = {
             media_type: mediaType,
-            to_id: to,
+            to: {
+                id: to,
+            }
         };
         if (from !== undefined) {
-            eventData.from_id = from;
+            eventData.from = {id: from};
         }
-        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.switch, eventData));
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.representation_switch, eventData));
     }
 
     public async onQualityChange(mediaType: qlog.MediaType, to: string, from?: string) {
-        let eventData: qlog.IEventABRSwitch = {
+        let eventData: qlog.IEventPlaybackQualityChanged = {
             media_type: mediaType,
-            to_id: to,
+            to: {
+                id: to,
+            }
         };
         if (from !== undefined) {
-            eventData.from_id = from;
+            eventData.from = {id: from};
         }
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.playback, qlog.PlaybackEventType.quality_changed, eventData));
     }
@@ -193,34 +215,34 @@ export class VideoQlog {
         await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.ABREventType.readystate_change, eventData));
     }
 
-    public async onBufferLevelUpdate(mediaType: qlog.MediaType, level: number, streamId?: string) {
-        let eventData: qlog.IEventABRBufferOccupancy = {
+    public async onBufferLevelUpdate(mediaType: qlog.MediaType, level: number) {
+        let eventData: qlog.IEventBufferOccupancyUpdate = {
             media_type: mediaType,
-            playout_ms: level
+            buffer: {
+                level_ms: level
+            }
         };
-        if (streamId !== undefined) {
-            eventData.stream_id = streamId;
-        }
         await this.registerEvent(this.wrapEventData("video", qlog.BufferEventType.occupancy_update, eventData));
     }
 
-    public async onRebuffer(playhead: number, streamId: string) {
-        let eventData: qlog.IEventABRRebuffer = {
-            playhead_ms: playhead
+    public async onRebuffer(playhead: number) {
+        let eventData: qlog.IEventPlaybackStall = {
+            playhead: {
+                ms: playhead
+            }
         };
-        if (streamId !== undefined) {
-            eventData.stream_id = streamId;
-        }
-        await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.rebuffer, eventData));
+        await this.registerEvent(this.wrapEventData("video", qlog.PlaybackEventType.stall, eventData));
     }
 
     public async onPlayerInteraction(action: qlog.InteractionState, playhead_ms: number, playback_rate?: number, volume?: number) {
-        let eventData: qlog.IEventABRPlayerInteraction = {
+        let eventData: qlog.IEventPlaybackPlayerInteraction = {
             state: action,
-            playhead_ms: playhead_ms,
+            playhead: {
+                ms: playhead_ms
+            },
         };
         if (playback_rate !== undefined) {
-            eventData.speed = playback_rate;
+            eventData.playback_rate = playback_rate;
         }
         if (volume !== undefined) {
             eventData.volume = volume;
@@ -265,7 +287,7 @@ export class VideoQlog {
     }
 
     public async onRequest(url: string, media_type: qlog.MediaType) {
-        let eventData: qlog.IEventABRRequest = {
+        let eventData: qlog.IEventNetworkRequest = {
             resource_url: url,
             media_type: media_type,
         };
@@ -273,7 +295,7 @@ export class VideoQlog {
     }
 
     public async onRequestUpdate(url: string, bytes_received: number, rtt?: number) {
-        let eventData: qlog.IEventABRRequestUpdate = {
+        let eventData: qlog.IEventNetworkRequestUpdate = {
             resource_url: url,
             bytes_received: bytes_received,
         };
@@ -284,10 +306,10 @@ export class VideoQlog {
     }
 
     public async onRequestAbort(url: string) {
-        let eventData: qlog.IEventABRAbort = {
+        let eventData: qlog.IEventNetworkRequestAbort = {
             resource_url: url,
         };
-        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.abort, eventData));
+        await this.registerEvent(this.wrapEventData(qlog.EventCategory.abr, qlog.NetworkEventType.request_abort, eventData));
     }
 
     public async UpdateMetrics(metrics: qlog.IEventABRStreamMetrics) {

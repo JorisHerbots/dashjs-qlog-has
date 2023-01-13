@@ -74,7 +74,7 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    this.videoQlog.onBufferLevelUpdate(data['mediaType'], data['bufferLevel'] * 1000, data['streamId']);
+                    this.videoQlog.onBufferLevelUpdate(data['mediaType'], data['bufferLevel'] * 1000);
                 });
             }
 
@@ -82,7 +82,7 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    this.videoQlog.onRebuffer(this.video.currentTime * 1000, data['streamId']);
+                    this.videoQlog.onRebuffer(this.video.currentTime * 1000);
                 });
             }
 
@@ -90,7 +90,7 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    this.videoQlog.onPlayheadProgress(data['time'] * 1000, data['timeToEnd'] * 1000, data['streamId']);
+                    this.videoQlog.onPlayheadProgress(data['time'] * 1000, data['timeToEnd'] * 1000);
                 });
             }
 
@@ -98,7 +98,7 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000, undefined, data['streamId']);
+                    this.videoQlog.onPlayheadProgress(this.video.currentTime * 1000, undefined);
                 });
             }
 
@@ -130,8 +130,10 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
+                    console.warn(data);
                     this.videoQlog.onRequestUpdate(this.url, 0);
                     //TODO size and rtt
+                    this.videoQlog.onMetadataLoaded(data['data']['protocol'], data['data']['type'], this.url, "manifest.json", data['data']['mediaPresentationDuration'] * 1000);
                 });
             }
 
@@ -140,9 +142,9 @@ export class dashjs_qlog_player {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
                     if (data['oldQuality']) {
-                        this.videoQlog.onSwitch(data['mediaType'], data['newQuality'], data['oldQuality']);
+                        this.videoQlog.onRepresentationSwitch(data['mediaType'], data['newQuality'], data['oldQuality']);
                     } else {
-                        this.videoQlog.onSwitch(data['mediaType'], data['newQuality']);
+                        this.videoQlog.onRepresentationSwitch(data['mediaType'], data['newQuality']);
                     }
                 });
             }
@@ -171,7 +173,7 @@ export class dashjs_qlog_player {
                 this.player.on(eventValue, (...hookArguments: any) => {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
-                    this.videoQlog.onPlayerInteraction(qlog.InteractionState.speed, this.video.currentTime * 1000, this.video.playbackRate, undefined);
+                    this.videoQlog.onPlayerInteraction(qlog.InteractionState.playback_rate, this.video.currentTime * 1000, this.video.playbackRate, undefined);
                 });
             }
 
@@ -180,6 +182,18 @@ export class dashjs_qlog_player {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
                     this.videoQlog.onPlayerInteraction(qlog.InteractionState.seek, data['seekTime'] * 1000);
+                });
+            }
+
+            else if ([
+                mediaPlayerEvents.PLAYBACK_STARTED,
+                mediaPlayerEvents.PLAYBACK_PAUSED,
+            ].includes(eventValue)) {
+                this.player.on(eventValue, (...hookArguments: any) => {
+                    if (!this.active) { return; }
+                    const data = hookArguments[0];
+                    //TODO player state
+                    //this.videoQlog.onReadystateChange(this.video.readyState);
                 });
             }
 
@@ -211,16 +225,7 @@ export class dashjs_qlog_player {
                     if (!this.active) { return; }
                     const data = hookArguments[0];
                     const streamInfo = data['streamInfo'];
-                    this.videoQlog.onStreamInitialised(
-                        {
-                            protocol: streamInfo['manifestInfo']['protocol'],
-                            url: this.url,
-                            duration: streamInfo['duration'],
-                            autoplay: this.autoplay,
-                            manifest: "manifest.json",
-                            stream_id: streamInfo['id'],
-                        }
-                    );
+                    this.videoQlog.onStreamInitialised(this.autoplay);
                 });
             }
 
