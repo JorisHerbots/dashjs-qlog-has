@@ -4,10 +4,16 @@ module.exports = {
     entry: './src/index.ts',
     devtool: 'inline-source-map',
     module: {
-        rules: [{
+        rules: [ 
+            {
+                use: 'babel-loader',
+                exclude: /node_modules/
+            },
+            {
             use: 'ts-loader',
             exclude: /node_modules/
-        }]
+            }
+        ]
     },
     resolve: {
         extensions: ['.ts', '.js'],
@@ -17,7 +23,7 @@ module.exports = {
         library: 'DashjsQlog',
         libraryTarget: 'window',
         path: path.resolve(__dirname, 'dist'),
-        filename: 'dashqlog.js'
+        filename: 'dashjs-qlog.js'
     },
     mode: "development",
     // externals: {
